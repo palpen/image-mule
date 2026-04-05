@@ -2,9 +2,11 @@
 
 Share screenshots from your laptop to your Claude Code session on a remote server in one click.
 
-Paste a screenshot, hit send. The file lands on your server via SFTP and the remote path is copied to your clipboard.
+Paste a screenshot, hit transmit. The file lands on your server via SFTP and the remote path is copied to your clipboard.
 
 ## Install
+
+Download the latest `.dmg` from [Releases](https://github.com/palpen/image-mule/releases), or build from source:
 
 ```bash
 git clone https://github.com/palpen/image-mule.git
@@ -17,14 +19,13 @@ npm start
 
 1. Take a screenshot on your laptop
 2. **Cmd+V** to paste it into Image Mule (or drag and drop)
-3. Configure your server connection (saved automatically)
-4. Click **Send to Server** (or **Cmd+Enter**)
-5. The remote file path is copied to your clipboard
-6. Paste the path into your remote Claude Code session
+3. Click **Transmit and Copy File Path** (or **Cmd+Enter**)
+4. The remote file path is copied to your clipboard
+5. Paste the path into your remote Claude Code session
 
 ## Configuration
 
-On first launch, fill in your server details:
+Click **Server Settings** to expand the connection panel. On first launch, fill in your server details:
 
 | Field | Description |
 |-------|-------------|
@@ -34,7 +35,11 @@ On first launch, fill in your server details:
 | SSH Key | Path to private key (default: `~/.ssh/id_rsa`) |
 | Remote Folder | Where screenshots land on the server |
 
-Settings are persisted between sessions.
+Settings are persisted between sessions and the panel stays collapsed once configured.
+
+## History
+
+Switch to the **History** tab to see your last 100 transmissions. Each entry shows the filename, server, and timestamp. Click **Copy Path** to copy any previous remote path to your clipboard.
 
 ## Build
 
