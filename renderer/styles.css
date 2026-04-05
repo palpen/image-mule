@@ -51,12 +51,46 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+/* Tabs */
+.tab-bar {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  padding: 0 20px;
+  gap: 4px;
+}
+
+.tab {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease-out, border-color 0.15s ease-out;
+  -webkit-app-region: no-drag;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Pages */
 .container {
   flex: 1;
-  padding: 0 20px 20px;
+  padding: 16px 20px 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   overflow-y: auto;
 }
 
@@ -145,11 +179,57 @@ body {
   background: rgba(196, 90, 74, 0.8);
 }
 
-/* Settings */
-.settings {
+/* Settings toggle */
+.settings-toggle {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease-out, color 0.15s ease-out;
+}
+
+.settings-toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.settings-icon {
+  font-size: 14px;
+}
+
+.settings-label {
+  flex: 1;
+  text-align: left;
+}
+
+.settings-chevron {
+  font-size: 14px;
+  transition: transform 0.15s ease-out;
+}
+
+.settings-toggle.open .settings-chevron {
+  transform: rotate(90deg);
+}
+
+/* Settings panel */
+.settings {
   flex-direction: column;
   gap: 10px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  margin-top: -6px;
 }
 
 .field {
@@ -169,6 +249,12 @@ body {
 
 .port-field {
   width: 80px;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
 }
 
 label {
@@ -238,12 +324,12 @@ input::placeholder {
 }
 
 .secondary {
-  padding: 12px 16px;
+  padding: 8px 14px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: border-color 0.15s ease-out, color 0.15s ease-out;
@@ -286,4 +372,80 @@ input::placeholder {
   display: inline-block;
   margin-top: 4px;
   word-break: break-all;
+}
+
+/* History */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 48px 0;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease-out;
+}
+
+.history-item:hover {
+  background: var(--surface-raised);
+}
+
+.history-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.history-filename {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.history-copy {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s ease-out, color 0.15s ease-out;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.history-copy:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.history-copy.copied {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--bg);
 }

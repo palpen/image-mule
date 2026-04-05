@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { uploadFile } = require('./lib/sftp');
-const { getConfig, setConfig } = require('./lib/config');
+const { getConfig, setConfig, addHistoryEntry, getHistory } = require('./lib/config');
 
 let mainWindow;
 
@@ -73,12 +73,29 @@ ipcMain.handle('upload-screenshot', async (event, imageBuffer) => {
     // Copy remote path to clipboard
     clipboard.writeText(remoteFilePath);
 
+    // Record in history
+    addHistoryEntry({
+      filename,
+      remotePath: remoteFilePath,
+      host: config.host,
+      timestamp: new Date().toISOString()
+    });
+
     return { success: true, remotePath: remoteFilePath };
   } catch (err) {
     // Clean up temp file on error
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
     return { success: false, error: err.message };
   }
+});
+
+ipcMain.handle('get-history', () => {
+  return getHistory();
+});
+
+ipcMain.handle('copy-to-clipboard', (event, text) => {
+  clipboard.writeText(text);
+  return { success: true };
 });
 
 ipcMain.handle('test-connection', async () => {

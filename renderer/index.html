@@ -8,9 +8,18 @@
 </head>
 <body>
   <!-- Draggable title bar area -->
-  <div class="titlebar">Image Mule</div>
+  <div class="titlebar">
+    <span class="titlebar-text">Image Mule</span>
+  </div>
 
-  <div class="container">
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab active" data-tab="transmit">Transmit</button>
+    <button class="tab" data-tab="history">History</button>
+  </div>
+
+  <!-- Transmit page -->
+  <div class="container page" id="page-transmit">
     <!-- Drop / Paste zone -->
     <div id="drop-zone" tabindex="0">
       <div id="placeholder">
@@ -22,8 +31,13 @@
       <button id="clear-btn" style="display:none;">✕</button>
     </div>
 
-    <!-- Settings -->
-    <div class="settings">
+    <!-- Collapsible Settings -->
+    <button id="settings-toggle" class="settings-toggle">
+      <span class="settings-icon">⚙</span>
+      <span class="settings-label">Server Settings</span>
+      <span class="settings-chevron">›</span>
+    </button>
+    <div id="settings-panel" class="settings" style="display: none;">
       <div class="field">
         <label for="host">Server</label>
         <input type="text" id="host" placeholder="myserver.com" />
@@ -46,16 +60,25 @@
         <label for="remotePath">Remote Folder</label>
         <input type="text" id="remotePath" placeholder="/home/user/screenshots" />
       </div>
+      <div class="settings-actions">
+        <button id="test-btn" class="secondary">Test Connection</button>
+      </div>
     </div>
 
     <!-- Actions -->
     <div class="actions">
-      <button id="send-btn" disabled>Transmit</button>
-      <button id="test-btn" class="secondary">Test</button>
+      <button id="send-btn" disabled>Transmit and Copy File Path</button>
     </div>
 
     <!-- Status -->
     <div id="status" class="status"></div>
+  </div>
+
+  <!-- History page -->
+  <div class="container page" id="page-history" style="display: none;">
+    <div id="history-list" class="history-list">
+      <div class="history-empty">No transmissions yet.</div>
+    </div>
   </div>
 
   <script src="renderer.js"></script>

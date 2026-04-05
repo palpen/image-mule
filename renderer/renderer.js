@@ -5,10 +5,37 @@ const clearBtn = document.getElementById('clear-btn');
 const sendBtn = document.getElementById('send-btn');
 const testBtn = document.getElementById('test-btn');
 const status = document.getElementById('status');
+const settingsToggle = document.getElementById('settings-toggle');
+const settingsPanel = document.getElementById('settings-panel');
 
 // Config fields
 const fields = ['host', 'username', 'port', 'privateKeyPath', 'remotePath'];
 let currentImageBuffer = null;
+
+// --- Tabs ---
+const tabs = document.querySelectorAll('.tab');
+const pages = document.querySelectorAll('.page');
+
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.tab;
+    tabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    pages.forEach(p => p.style.display = 'none');
+    document.getElementById(`page-${target}`).style.display = 'flex';
+
+    if (target === 'history') {
+      loadHistory();
+    }
+  });
+});
+
+// --- Collapsible settings ---
+settingsToggle.addEventListener('click', () => {
+  const isOpen = settingsPanel.style.display !== 'none';
+  settingsPanel.style.display = isOpen ? 'none' : 'flex';
+  settingsToggle.classList.toggle('open', !isOpen);
+});
 
 // --- Load saved config ---
 async function loadConfig() {
@@ -49,8 +76,6 @@ function setImage(blob) {
     sendBtn.disabled = false;
 
     // Convert to buffer for upload
-    const arrayBuffer = e.target.result;
-    // We need the raw bytes, read again as ArrayBuffer
     const bufReader = new FileReader();
     bufReader.onload = (ev) => {
       currentImageBuffer = Array.from(new Uint8Array(ev.target.result));
@@ -129,7 +154,7 @@ sendBtn.addEventListener('click', async () => {
   const result = await window.api.uploadScreenshot(currentImageBuffer);
 
   sendBtn.classList.remove('uploading');
-  sendBtn.textContent = 'Transmit';
+  sendBtn.textContent = 'Transmit and Copy File Path';
 
   if (result.success) {
     setStatus(
@@ -158,7 +183,7 @@ testBtn.addEventListener('click', async () => {
 
   const result = await window.api.testConnection();
 
-  testBtn.textContent = 'Test';
+  testBtn.textContent = 'Test Connection';
 
   if (result.success) {
     setStatus('✓ Connection OK', 'success');
@@ -166,6 +191,50 @@ testBtn.addEventListener('click', async () => {
     setStatus(`✗ ${result.error}`, 'error');
   }
 });
+
+// --- History ---
+async function loadHistory() {
+  const historyList = document.getElementById('history-list');
+  const history = await window.api.getHistory();
+
+  if (history.length === 0) {
+    historyList.innerHTML = '<div class="history-empty">No transmissions yet.</div>';
+    return;
+  }
+
+  historyList.innerHTML = history.map(entry => {
+    const date = new Date(entry.timestamp);
+    const timeStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      + ' ' + date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+    return `
+      <div class="history-item">
+        <div class="history-info">
+          <span class="history-filename">${entry.filename}</span>
+          <span class="history-meta">${entry.host} · ${timeStr}</span>
+        </div>
+        <button class="history-copy" data-path="${entry.remotePath}" title="Copy path">
+          Copy Path
+        </button>
+      </div>
+    `;
+  }).join('');
+
+  // Attach copy handlers
+  historyList.querySelectorAll('.history-copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const pathText = btn.dataset.path;
+      await window.api.copyToClipboard(pathText);
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove('copied');
+      }, 1500);
+    });
+  });
+}
 
 // --- Init ---
 loadConfig();
