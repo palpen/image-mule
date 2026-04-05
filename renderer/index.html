@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Mule</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Draggable title bar area -->
+  <div class="titlebar">Image Mule</div>
+
+  <div class="container">
+    <!-- Drop / Paste zone -->
+    <div id="drop-zone" tabindex="0">
+      <div id="placeholder">
+        <div class="icon">📋</div>
+        <p>Paste or drop screenshot here</p>
+        <span class="hint">Cmd+V or drag an image</span>
+      </div>
+      <img id="preview" style="display:none;" />
+      <button id="clear-btn" style="display:none;">✕</button>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings">
+      <div class="field">
+        <label for="host">Server</label>
+        <input type="text" id="host" placeholder="myserver.com" />
+      </div>
+      <div class="field-row">
+        <div class="field flex-grow">
+          <label for="username">User</label>
+          <input type="text" id="username" placeholder="username" />
+        </div>
+        <div class="field port-field">
+          <label for="port">Port</label>
+          <input type="number" id="port" placeholder="22" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="privateKeyPath">SSH Key</label>
+        <input type="text" id="privateKeyPath" placeholder="~/.ssh/id_rsa" />
+      </div>
+      <div class="field">
+        <label for="remotePath">Remote Folder</label>
+        <input type="text" id="remotePath" placeholder="/home/user/screenshots" />
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button id="send-btn" disabled>Send to Server</button>
+      <button id="test-btn" class="secondary">Test Connection</button>
+    </div>
+
+    <!-- Status -->
+    <div id="status" class="status"></div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
