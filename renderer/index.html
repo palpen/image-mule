@@ -24,20 +24,24 @@
     <div id="drop-zone" tabindex="0">
       <div id="placeholder">
         <div class="icon">📋</div>
-        <p>Paste or drop a screenshot</p>
+        <p>Paste or drop an image</p>
         <span class="hint">Cmd+V · drag &amp; drop</span>
       </div>
       <img id="preview" style="display:none;" />
       <button id="clear-btn" style="display:none;">✕</button>
     </div>
 
-    <!-- Collapsible Settings -->
-    <button id="settings-toggle" class="settings-toggle">
-      <span class="settings-icon">⚙</span>
-      <span class="settings-label">Server Settings</span>
-      <span class="settings-chevron">›</span>
-    </button>
+    <!-- Server bar: selector + gear + add -->
+    <div class="server-bar">
+      <select id="server-select" class="server-select"></select>
+      <button id="settings-toggle" class="server-action" title="Server Settings">⚙</button>
+      <button id="add-server-btn" class="server-action" title="New Server">+</button>
+    </div>
     <div id="settings-panel" class="settings" style="display: none;">
+      <div class="field">
+        <label for="server-name">Name</label>
+        <input type="text" id="server-name" placeholder="My Server" />
+      </div>
       <div class="field">
         <label for="host">Server</label>
         <input type="text" id="host" placeholder="myserver.com" />
@@ -61,6 +65,7 @@
         <input type="text" id="remotePath" placeholder="/home/user/screenshots" />
       </div>
       <div class="settings-actions">
+        <button id="delete-server-btn" class="secondary danger">Delete Server</button>
         <button id="test-btn" class="secondary">Test Connection</button>
       </div>
     </div>
@@ -70,12 +75,30 @@
       <button id="send-btn" disabled>Transmit and Copy File Path</button>
     </div>
 
+    <!-- Shortcut hint -->
+    <div class="shortcut-hint">
+      <span class="shortcut-label">Global shortcut:</span>
+      <button id="shortcut-display" class="shortcut-keys" title="Click to change shortcut"></button>
+      <button id="reset-shortcut" class="shortcut-reset" title="Reset to default">reset</button>
+    </div>
+
     <!-- Status -->
     <div id="status" class="status"></div>
   </div>
 
   <!-- History page -->
   <div class="container page" id="page-history" style="display: none;">
+    <div class="history-toolbar">
+      <div class="clear-wrapper">
+        <button id="clear-history-btn" class="secondary">Clear...</button>
+        <div id="clear-dropdown" class="clear-dropdown" style="display: none;">
+          <button class="clear-option" data-range="hour">Last Hour</button>
+          <button class="clear-option" data-range="day">Last 24 Hours</button>
+          <button class="clear-option" data-range="month">Last 30 Days</button>
+          <button class="clear-option" data-range="all">All History</button>
+        </div>
+      </div>
+    </div>
     <div id="history-list" class="history-list">
       <div class="history-empty">No transmissions yet.</div>
     </div>
