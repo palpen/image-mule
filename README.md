@@ -1,8 +1,8 @@
 # Image Mule 🫏
 
-Haul screenshots from your laptop to a remote server in one click.
+Share screenshots from your laptop to your Claude Code session on a remote server in one click.
 
-Paste a screenshot, hit send — the file lands on your server via SFTP and the remote path is copied to your clipboard. Built for developers who work with Claude Code (or any remote tool) and need to share visual context from their local machine.
+Paste a screenshot, hit send. The file lands on your server via SFTP and the remote path is copied to your clipboard.
 
 ## Install
 
