@@ -7,8 +7,11 @@ const testBtn = document.getElementById('test-btn');
 const status = document.getElementById('status');
 const settingsToggle = document.getElementById('settings-toggle');
 const settingsPanel = document.getElementById('settings-panel');
+const serverSelect = document.getElementById('server-select');
+const addServerBtn = document.getElementById('add-server-btn');
+const deleteServerBtn = document.getElementById('delete-server-btn');
 
-// Config fields
+// Config fields (excluding server-name which is handled separately)
 const fields = ['host', 'username', 'port', 'privateKeyPath', 'remotePath'];
 let currentImageBuffer = null;
 let currentThumbnail = null;
@@ -38,20 +41,85 @@ settingsToggle.addEventListener('click', () => {
   settingsToggle.classList.toggle('open', !isOpen);
 });
 
-// --- Load saved config ---
-async function loadConfig() {
-  const config = await window.api.getConfig();
+// --- Server selector ---
+async function loadServers() {
+  const servers = await window.api.getServers();
+  const active = await window.api.getActiveServer();
+
+  serverSelect.innerHTML = '';
+
+  if (servers.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No servers configured';
+    serverSelect.appendChild(opt);
+    deleteServerBtn.style.display = 'none';
+    return;
+  }
+
+  servers.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name || s.host || 'Untitled';
+    if (active && s.id === active.id) opt.selected = true;
+    serverSelect.appendChild(opt);
+  });
+
+  deleteServerBtn.style.display = servers.length > 0 ? '' : 'none';
+  loadActiveServerConfig();
+}
+
+async function loadActiveServerConfig() {
+  const server = await window.api.getActiveServer();
+  if (!server) return;
+
+  document.getElementById('server-name').value = server.name || '';
   for (const field of fields) {
     const el = document.getElementById(field);
-    if (el && config[field]) {
-      el.value = config[field];
+    if (el && server[field] !== undefined) {
+      el.value = server[field];
     }
   }
 }
 
+serverSelect.addEventListener('change', async () => {
+  const id = serverSelect.value;
+  if (id) {
+    await window.api.setActiveServer(id);
+    loadActiveServerConfig();
+  }
+});
+
+// --- Add server ---
+addServerBtn.addEventListener('click', async () => {
+  const server = await window.api.addServer({
+    name: 'New Server',
+    host: '',
+    port: 22,
+    username: '',
+    privateKeyPath: '~/.ssh/id_rsa',
+    remotePath: '/home/user/screenshots'
+  });
+  await loadServers();
+  // Open settings so user can configure
+  settingsPanel.style.display = 'flex';
+  settingsToggle.classList.add('open');
+  document.getElementById('server-name').focus();
+});
+
+// --- Delete server ---
+deleteServerBtn.addEventListener('click', async () => {
+  const id = serverSelect.value;
+  if (!id) return;
+  const name = serverSelect.options[serverSelect.selectedIndex]?.textContent || 'this server';
+  if (!confirm(`Delete "${name}"?`)) return;
+  await window.api.deleteServer(id);
+  await loadServers();
+});
+
 // --- Save config on input change ---
 function getConfigFromFields() {
-  const config = {};
+  const config = { name: document.getElementById('server-name').value };
   for (const field of fields) {
     const el = document.getElementById(field);
     config[field] = field === 'port' ? parseInt(el.value) || 22 : el.value;
@@ -59,10 +127,18 @@ function getConfigFromFields() {
   return config;
 }
 
-for (const field of fields) {
-  document.getElementById(field).addEventListener('change', async () => {
-    await window.api.saveConfig(getConfigFromFields());
-  });
+async function saveCurrentServer() {
+  const id = serverSelect.value;
+  if (!id) return;
+  const config = getConfigFromFields();
+  await window.api.updateServer(id, config);
+  // Update dropdown label
+  const opt = serverSelect.querySelector(`option[value="${id}"]`);
+  if (opt) opt.textContent = config.name || config.host || 'Untitled';
+}
+
+for (const field of ['server-name', ...fields]) {
+  document.getElementById(field).addEventListener('change', saveCurrentServer);
 }
 
 // --- Image handling ---
@@ -165,7 +241,7 @@ sendBtn.addEventListener('click', async () => {
   if (!currentImageBuffer) return;
 
   // Save config first
-  await window.api.saveConfig(getConfigFromFields());
+  await saveCurrentServer();
 
   sendBtn.disabled = true;
   sendBtn.textContent = 'Transmitting...';
@@ -198,7 +274,7 @@ document.addEventListener('keydown', (e) => {
 
 // --- Test connection ---
 testBtn.addEventListener('click', async () => {
-  await window.api.saveConfig(getConfigFromFields());
+  await saveCurrentServer();
   testBtn.textContent = 'Testing...';
   setStatus('Testing...', 'info');
 
@@ -309,4 +385,4 @@ document.querySelectorAll('.clear-option').forEach(btn => {
 });
 
 // --- Init ---
-loadConfig();
+loadServers();

@@ -3,7 +3,12 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { uploadFile } = require('./lib/sftp');
-const { getConfig, setConfig, addHistoryEntry, getHistory, clearHistory } = require('./lib/config');
+const {
+  getConfig, setConfig,
+  getServers, getActiveServer, setActiveServer,
+  addServer, updateServer, deleteServer,
+  addHistoryEntry, getHistory, clearHistory
+} = require('./lib/config');
 
 let mainWindow;
 
@@ -96,6 +101,29 @@ ipcMain.handle('get-history', () => {
 
 ipcMain.handle('copy-to-clipboard', (event, text) => {
   clipboard.writeText(text);
+  return { success: true };
+});
+
+// --- Server management ---
+ipcMain.handle('get-servers', () => getServers());
+
+ipcMain.handle('get-active-server', () => getActiveServer());
+
+ipcMain.handle('set-active-server', (event, id) => {
+  setActiveServer(id);
+  return { success: true };
+});
+
+ipcMain.handle('add-server', (event, server) => {
+  return addServer(server);
+});
+
+ipcMain.handle('update-server', (event, id, config) => {
+  return updateServer(id, config);
+});
+
+ipcMain.handle('delete-server', (event, id) => {
+  deleteServer(id);
   return { success: true };
 });
 

@@ -31,6 +31,12 @@
       <button id="clear-btn" style="display:none;">✕</button>
     </div>
 
+    <!-- Server selector -->
+    <div class="server-bar">
+      <select id="server-select" class="server-select"></select>
+      <button id="add-server-btn" class="server-action" title="New Server">+</button>
+    </div>
+
     <!-- Collapsible Settings -->
     <button id="settings-toggle" class="settings-toggle">
       <span class="settings-icon">⚙</span>
@@ -38,6 +44,10 @@
       <span class="settings-chevron">›</span>
     </button>
     <div id="settings-panel" class="settings" style="display: none;">
+      <div class="field">
+        <label for="server-name">Name</label>
+        <input type="text" id="server-name" placeholder="My Server" />
+      </div>
       <div class="field">
         <label for="host">Server</label>
         <input type="text" id="host" placeholder="myserver.com" />
@@ -61,6 +71,7 @@
         <input type="text" id="remotePath" placeholder="/home/user/screenshots" />
       </div>
       <div class="settings-actions">
+        <button id="delete-server-btn" class="secondary danger">Delete Server</button>
         <button id="test-btn" class="secondary">Test Connection</button>
       </div>
     </div>
