@@ -42,7 +42,7 @@ async function performUpload(imageBuffer, thumbnail) {
   }
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const filename = `screenshot_${timestamp}.png`;
+  const filename = `image_${timestamp}.png`;
   const tempPath = path.join(os.tmpdir(), filename);
 
   try {

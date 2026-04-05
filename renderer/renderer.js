@@ -405,23 +405,29 @@ function formatShortcut(accelerator) {
 function keyEventToAccelerator(e) {
   const parts = [];
   if (e.metaKey) parts.push('CommandOrControl');
-  if (e.ctrlKey && !e.metaKey) parts.push('Control');
+  if (e.ctrlKey) parts.push('Control');
   if (e.altKey) parts.push('Option');
   if (e.shiftKey) parts.push('Shift');
 
-  const key = e.key;
-  // Only accept letter/number/F-key as the final key
-  if (key.length === 1 && /[a-zA-Z0-9]/.test(key)) {
-    parts.push(key.toUpperCase());
-  } else if (/^F\d+$/.test(key)) {
-    parts.push(key);
-  } else {
-    return null; // modifier-only press, ignore
+  // Use e.code to get the physical key (e.key returns garbled chars with Option held)
+  const code = e.code;
+  let key = null;
+  if (/^Key[A-Z]$/.test(code)) {
+    key = code.slice(3); // KeyP → P
+  } else if (/^Digit\d$/.test(code)) {
+    key = code.slice(5); // Digit1 → 1
+  } else if (/^F\d+$/.test(code)) {
+    key = code; // F1, F12
   }
+
+  if (!key) return null; // modifier-only press or unsupported key
+  parts.push(key);
 
   if (parts.length < 2) return null; // need at least one modifier + key
   return parts.join('+');
 }
+
+const DEFAULT_SHORTCUT = 'CommandOrControl+Option+Control+P';
 
 async function loadShortcut() {
   const shortcut = await window.api.getGlobalShortcut();
@@ -459,6 +465,13 @@ shortcutDisplay.addEventListener('click', () => {
   };
 
   document.addEventListener('keydown', handler, true);
+});
+
+// --- Reset shortcut ---
+const resetShortcutBtn = document.getElementById('reset-shortcut');
+resetShortcutBtn.addEventListener('click', async () => {
+  await window.api.setGlobalShortcut(DEFAULT_SHORTCUT);
+  shortcutDisplay.textContent = formatShortcut(DEFAULT_SHORTCUT);
 });
 
 // --- Init ---
