@@ -233,47 +233,6 @@ body {
   color: var(--text);
 }
 
-/* Settings toggle */
-.settings-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: border-color 0.15s ease-out, color 0.15s ease-out;
-}
-
-.settings-toggle:hover {
-  border-color: var(--border-strong);
-  color: var(--text);
-}
-
-.settings-icon {
-  font-size: 14px;
-}
-
-.settings-label {
-  flex: 1;
-  text-align: left;
-}
-
-.settings-chevron {
-  font-size: 14px;
-  transition: transform 0.15s ease-out;
-}
-
-.settings-toggle.open .settings-chevron {
-  transform: rotate(90deg);
-}
-
 /* Settings panel */
 .settings {
   flex-direction: column;
@@ -281,9 +240,12 @@ body {
   padding: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-top: none;
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
-  margin-top: -6px;
+  border-radius: var(--radius-md);
+}
+
+.server-action.open {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .field {
