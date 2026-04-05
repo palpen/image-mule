@@ -46,7 +46,7 @@ ipcMain.handle('save-config', (event, config) => {
   return { success: true };
 });
 
-ipcMain.handle('upload-screenshot', async (event, imageBuffer) => {
+ipcMain.handle('upload-screenshot', async (event, imageBuffer, thumbnail) => {
   const config = getConfig();
 
   if (!config.host || !config.username || !config.remotePath) {
@@ -78,7 +78,8 @@ ipcMain.handle('upload-screenshot', async (event, imageBuffer) => {
       filename,
       remotePath: remoteFilePath,
       host: config.host,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      thumbnail: thumbnail || null
     });
 
     return { success: true, remotePath: remoteFilePath };

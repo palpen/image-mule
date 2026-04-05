@@ -11,6 +11,7 @@ const settingsPanel = document.getElementById('settings-panel');
 // Config fields
 const fields = ['host', 'username', 'port', 'privateKeyPath', 'remotePath'];
 let currentImageBuffer = null;
+let currentThumbnail = null;
 
 // --- Tabs ---
 const tabs = document.querySelectorAll('.tab');
@@ -65,15 +66,34 @@ for (const field of fields) {
 }
 
 // --- Image handling ---
+function generateThumbnail(dataUrl, maxWidth = 100) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = maxWidth / img.width;
+      const canvas = document.createElement('canvas');
+      canvas.width = maxWidth;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.6));
+    };
+    img.src = dataUrl;
+  });
+}
+
 function setImage(blob) {
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     preview.src = e.target.result;
     preview.style.display = 'block';
     placeholder.style.display = 'none';
     clearBtn.style.display = 'flex';
     dropZone.classList.add('has-image');
     sendBtn.disabled = false;
+
+    // Generate thumbnail for history
+    currentThumbnail = await generateThumbnail(e.target.result);
 
     // Convert to buffer for upload
     const bufReader = new FileReader();
@@ -93,6 +113,7 @@ function clearImage() {
   dropZone.classList.remove('has-image');
   sendBtn.disabled = true;
   currentImageBuffer = null;
+  currentThumbnail = null;
   setStatus('', '');
 }
 
@@ -151,7 +172,7 @@ sendBtn.addEventListener('click', async () => {
   sendBtn.classList.add('uploading');
   setStatus('Connecting...', 'info');
 
-  const result = await window.api.uploadScreenshot(currentImageBuffer);
+  const result = await window.api.uploadScreenshot(currentImageBuffer, currentThumbnail);
 
   sendBtn.classList.remove('uploading');
   sendBtn.textContent = 'Transmit and Copy File Path';
@@ -202,13 +223,18 @@ async function loadHistory() {
     return;
   }
 
-  historyList.innerHTML = history.map(entry => {
+  historyList.innerHTML = history.map((entry, i) => {
     const date = new Date(entry.timestamp);
     const timeStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
       + ' ' + date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
+    const thumbHtml = entry.thumbnail
+      ? `<img class="history-thumb" src="${entry.thumbnail}" alt="" />`
+      : `<div class="history-thumb-placeholder">📋</div>`;
+
     return `
-      <div class="history-item">
+      <div class="history-item" data-index="${i}">
+        ${thumbHtml}
         <div class="history-info">
           <span class="history-filename">${entry.filename}</span>
           <span class="history-meta">${entry.host} · ${timeStr}</span>
@@ -217,12 +243,16 @@ async function loadHistory() {
           Copy Path
         </button>
       </div>
+      ${entry.thumbnail ? `<div class="history-preview" data-for="${i}" style="display:none;">
+        <img src="${entry.thumbnail}" alt="Preview" />
+      </div>` : ''}
     `;
   }).join('');
 
   // Attach copy handlers
   historyList.querySelectorAll('.history-copy').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
       const pathText = btn.dataset.path;
       await window.api.copyToClipboard(pathText);
       const original = btn.textContent;
@@ -232,6 +262,23 @@ async function loadHistory() {
         btn.textContent = original;
         btn.classList.remove('copied');
       }, 1500);
+    });
+  });
+
+  // Attach click-to-expand handlers
+  historyList.querySelectorAll('.history-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const idx = item.dataset.index;
+      const preview = historyList.querySelector(`.history-preview[data-for="${idx}"]`);
+      if (!preview) return;
+      const isOpen = preview.style.display !== 'none';
+      // Close all previews
+      historyList.querySelectorAll('.history-preview').forEach(p => p.style.display = 'none');
+      historyList.querySelectorAll('.history-item').forEach(i => i.classList.remove('expanded'));
+      if (!isOpen) {
+        preview.style.display = 'block';
+        item.classList.add('expanded');
+      }
     });
   });
 }
