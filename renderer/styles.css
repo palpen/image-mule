@@ -369,6 +369,48 @@ input::placeholder {
   color: var(--error);
 }
 
+/* Shortcut hint */
+.shortcut-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.shortcut-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.shortcut-keys {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease-out, color 0.15s ease-out;
+}
+
+.shortcut-keys:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.shortcut-keys.recording {
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 /* Status */
 .status {
   font-size: 12px;

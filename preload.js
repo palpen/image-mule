@@ -17,5 +17,7 @@ contextBridge.exposeInMainWorld('api', {
   deleteServer: (id) => ipcRenderer.invoke('delete-server', id),
   // Quick transmit settings
   getSkipQuickConfirm: () => ipcRenderer.invoke('get-skip-quick-confirm'),
-  setSkipQuickConfirm: (val) => ipcRenderer.invoke('set-skip-quick-confirm', val)
+  setSkipQuickConfirm: (val) => ipcRenderer.invoke('set-skip-quick-confirm', val),
+  getGlobalShortcut: () => ipcRenderer.invoke('get-global-shortcut'),
+  setGlobalShortcut: (shortcut) => ipcRenderer.invoke('set-global-shortcut', shortcut)
 });

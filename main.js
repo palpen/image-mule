@@ -8,7 +8,8 @@ const {
   getServers, getActiveServer, setActiveServer,
   addServer, updateServer, deleteServer,
   addHistoryEntry, getHistory, clearHistory,
-  getSkipQuickConfirm, setSkipQuickConfirm
+  getSkipQuickConfirm, setSkipQuickConfirm,
+  getGlobalShortcut, setGlobalShortcut
 } = require('./lib/config');
 
 let mainWindow;
@@ -155,9 +156,19 @@ function handleQuickTransmit() {
   });
 }
 
+function registerQuickTransmitShortcut() {
+  globalShortcut.unregisterAll();
+  const shortcut = getGlobalShortcut();
+  try {
+    globalShortcut.register(shortcut, handleQuickTransmit);
+  } catch (err) {
+    console.error(`Failed to register shortcut "${shortcut}":`, err.message);
+  }
+}
+
 app.whenReady().then(() => {
   createWindow();
-  globalShortcut.register('CommandOrControl+Option+Control+P', handleQuickTransmit);
+  registerQuickTransmitShortcut();
 });
 
 app.on('will-quit', () => {
@@ -240,5 +251,14 @@ ipcMain.handle('get-skip-quick-confirm', () => getSkipQuickConfirm());
 
 ipcMain.handle('set-skip-quick-confirm', (event, val) => {
   setSkipQuickConfirm(val);
+  return { success: true };
+});
+
+// --- Global shortcut setting ---
+ipcMain.handle('get-global-shortcut', () => getGlobalShortcut());
+
+ipcMain.handle('set-global-shortcut', (event, shortcut) => {
+  setGlobalShortcut(shortcut);
+  registerQuickTransmitShortcut();
   return { success: true };
 });

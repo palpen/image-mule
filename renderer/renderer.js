@@ -384,5 +384,83 @@ document.querySelectorAll('.clear-option').forEach(btn => {
   });
 });
 
+// --- Global shortcut display & editor ---
+const shortcutDisplay = document.getElementById('shortcut-display');
+let isRecording = false;
+
+// Convert Electron accelerator to readable format
+function formatShortcut(accelerator) {
+  if (!accelerator) return '';
+  const isMac = navigator.platform.includes('Mac');
+  return accelerator
+    .replace(/CommandOrControl/g, isMac ? '⌘' : 'Ctrl')
+    .replace(/Control/g, isMac ? '⌃' : 'Ctrl')
+    .replace(/Option/g, isMac ? '⌥' : 'Alt')
+    .replace(/Alt/g, isMac ? '⌥' : 'Alt')
+    .replace(/Shift/g, isMac ? '⇧' : 'Shift')
+    .replace(/\+/g, '');
+}
+
+// Convert keydown event to Electron accelerator string
+function keyEventToAccelerator(e) {
+  const parts = [];
+  if (e.metaKey) parts.push('CommandOrControl');
+  if (e.ctrlKey && !e.metaKey) parts.push('Control');
+  if (e.altKey) parts.push('Option');
+  if (e.shiftKey) parts.push('Shift');
+
+  const key = e.key;
+  // Only accept letter/number/F-key as the final key
+  if (key.length === 1 && /[a-zA-Z0-9]/.test(key)) {
+    parts.push(key.toUpperCase());
+  } else if (/^F\d+$/.test(key)) {
+    parts.push(key);
+  } else {
+    return null; // modifier-only press, ignore
+  }
+
+  if (parts.length < 2) return null; // need at least one modifier + key
+  return parts.join('+');
+}
+
+async function loadShortcut() {
+  const shortcut = await window.api.getGlobalShortcut();
+  shortcutDisplay.textContent = formatShortcut(shortcut);
+}
+
+shortcutDisplay.addEventListener('click', () => {
+  if (isRecording) return;
+  isRecording = true;
+  shortcutDisplay.textContent = 'Press shortcut...';
+  shortcutDisplay.classList.add('recording');
+
+  const handler = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.key === 'Escape') {
+      // Cancel recording
+      isRecording = false;
+      shortcutDisplay.classList.remove('recording');
+      document.removeEventListener('keydown', handler, true);
+      loadShortcut();
+      return;
+    }
+
+    const accelerator = keyEventToAccelerator(e);
+    if (!accelerator) return; // still pressing modifiers
+
+    isRecording = false;
+    shortcutDisplay.classList.remove('recording');
+    document.removeEventListener('keydown', handler, true);
+
+    await window.api.setGlobalShortcut(accelerator);
+    shortcutDisplay.textContent = formatShortcut(accelerator);
+  };
+
+  document.addEventListener('keydown', handler, true);
+});
+
 // --- Init ---
 loadServers();
+loadShortcut();
