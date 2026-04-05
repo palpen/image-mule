@@ -15,10 +15,13 @@ jobs:
         include:
           - os: macos-latest
             arch: arm64
-          - os: macos-13
+            build_args: "--mac --arm64"
+          - os: macos-latest
             arch: x64
+            build_args: "--mac --x64"
           - os: windows-latest
             arch: x64
+            build_args: "--win --x64"
 
     runs-on: ${{ matrix.os }}
 
@@ -33,7 +36,7 @@ jobs:
       - run: npm ci
 
       - name: Build
-        run: npx electron-builder --publish never
+        run: npx electron-builder ${{ matrix.build_args }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

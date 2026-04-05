@@ -1,6 +1,6 @@
 {
   "name": "image-mule",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Haul screenshots to your remote server via SFTP",
   "author": "palpen",
   "main": "main.js",
