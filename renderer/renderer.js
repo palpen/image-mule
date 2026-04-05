@@ -122,18 +122,18 @@ sendBtn.addEventListener('click', async () => {
   await window.api.saveConfig(getConfigFromFields());
 
   sendBtn.disabled = true;
-  sendBtn.textContent = 'Uploading...';
+  sendBtn.textContent = 'Transmitting...';
   sendBtn.classList.add('uploading');
-  setStatus('Connecting to server...', 'info');
+  setStatus('Connecting...', 'info');
 
   const result = await window.api.uploadScreenshot(currentImageBuffer);
 
   sendBtn.classList.remove('uploading');
-  sendBtn.textContent = 'Send to Server';
+  sendBtn.textContent = 'Transmit';
 
   if (result.success) {
     setStatus(
-      `✓ Copied to clipboard<br><span class="path">${result.remotePath}</span>`,
+      `✓ Transmitted. Path copied.<br><span class="path">${result.remotePath}</span>`,
       'success'
     );
     sendBtn.disabled = false;
@@ -154,14 +154,14 @@ document.addEventListener('keydown', (e) => {
 testBtn.addEventListener('click', async () => {
   await window.api.saveConfig(getConfigFromFields());
   testBtn.textContent = 'Testing...';
-  setStatus('Testing connection...', 'info');
+  setStatus('Testing...', 'info');
 
   const result = await window.api.testConnection();
 
-  testBtn.textContent = 'Test Connection';
+  testBtn.textContent = 'Test';
 
   if (result.success) {
-    setStatus('✓ Connection successful', 'success');
+    setStatus('✓ Connection OK', 'success');
   } else {
     setStatus(`✗ ${result.error}`, 'error');
   }

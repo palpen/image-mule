@@ -5,3 +5,4 @@ build/output/
 *.exe
 *.AppImage
 .DS_Store
+.gstack/
