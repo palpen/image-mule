@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { uploadFile } = require('./lib/sftp');
-const { getConfig, setConfig, addHistoryEntry, getHistory } = require('./lib/config');
+const { getConfig, setConfig, addHistoryEntry, getHistory, clearHistory } = require('./lib/config');
 
 let mainWindow;
 
@@ -96,6 +96,11 @@ ipcMain.handle('get-history', () => {
 
 ipcMain.handle('copy-to-clipboard', (event, text) => {
   clipboard.writeText(text);
+  return { success: true };
+});
+
+ipcMain.handle('clear-history', (event, olderThanMs) => {
+  clearHistory(olderThanMs);
   return { success: true };
 });
 

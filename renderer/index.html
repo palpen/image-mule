@@ -76,6 +76,17 @@
 
   <!-- History page -->
   <div class="container page" id="page-history" style="display: none;">
+    <div class="history-toolbar">
+      <div class="clear-wrapper">
+        <button id="clear-history-btn" class="secondary">Clear...</button>
+        <div id="clear-dropdown" class="clear-dropdown" style="display: none;">
+          <button class="clear-option" data-range="hour">Last Hour</button>
+          <button class="clear-option" data-range="day">Last 24 Hours</button>
+          <button class="clear-option" data-range="month">Last 30 Days</button>
+          <button class="clear-option" data-range="all">All History</button>
+        </div>
+      </div>
+    </div>
     <div id="history-list" class="history-list">
       <div class="history-empty">No transmissions yet.</div>
     </div>

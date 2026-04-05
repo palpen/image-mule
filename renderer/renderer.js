@@ -283,5 +283,30 @@ async function loadHistory() {
   });
 }
 
+// --- Clear history ---
+const clearHistoryBtn = document.getElementById('clear-history-btn');
+const clearDropdown = document.getElementById('clear-dropdown');
+
+clearHistoryBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  clearDropdown.style.display = clearDropdown.style.display === 'none' ? 'block' : 'none';
+});
+
+document.addEventListener('click', () => {
+  clearDropdown.style.display = 'none';
+});
+
+const RANGES = { hour: 3600000, day: 86400000, month: 2592000000, all: null };
+
+document.querySelectorAll('.clear-option').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const range = btn.dataset.range;
+    await window.api.clearHistory(RANGES[range]);
+    clearDropdown.style.display = 'none';
+    loadHistory();
+  });
+});
+
 // --- Init ---
 loadConfig();

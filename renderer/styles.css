@@ -374,6 +374,52 @@ input::placeholder {
   word-break: break-all;
 }
 
+/* History toolbar */
+.history-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.clear-wrapper {
+  position: relative;
+}
+
+.clear-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  z-index: 10;
+  min-width: 160px;
+}
+
+.clear-option {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease-out;
+}
+
+.clear-option:hover {
+  background: var(--accent-soft);
+}
+
+.clear-option:not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+
 /* History */
 .history-list {
   display: flex;
