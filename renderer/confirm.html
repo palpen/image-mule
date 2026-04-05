@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Confirm Transmit</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    .confirm-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      text-align: center;
+    }
+
+    .confirm-preview {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .confirm-preview img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: var(--radius-md);
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .confirm-actions button {
+      flex: 1;
+      padding: 10px;
+      border-radius: var(--radius-md);
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+
+    #confirm-btn {
+      background: var(--accent);
+      color: var(--bg);
+    }
+
+    #confirm-btn:hover {
+      background: var(--accent-hover);
+    }
+
+    #cancel-btn {
+      background: var(--surface-raised);
+      color: var(--text-muted);
+      border: 1px solid var(--border-strong);
+    }
+
+    #cancel-btn:hover {
+      color: var(--text);
+    }
+
+    .confirm-skip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .confirm-skip input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--accent);
+      padding: 0;
+    }
+
+    .confirm-skip label {
+      font-size: 11px;
+      text-transform: none;
+      letter-spacing: 0;
+      cursor: pointer;
+    }
+
+    .confirm-status {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      text-align: center;
+      color: var(--text-muted);
+      min-height: 16px;
+    }
+
+    .confirm-status.uploading {
+      color: var(--accent);
+    }
+
+    .confirm-status.success {
+      color: var(--success);
+    }
+
+    .confirm-status.error {
+      color: var(--error);
+    }
+  </style>
+</head>
+<body>
+  <div class="confirm-header">Transmit this screenshot?</div>
+  <div class="confirm-preview">
+    <img id="confirm-image" />
+  </div>
+  <div class="confirm-skip">
+    <input type="checkbox" id="skip-checkbox" />
+    <label for="skip-checkbox">Don't ask again</label>
+  </div>
+  <div id="confirm-status" class="confirm-status"></div>
+  <div class="confirm-actions">
+    <button id="cancel-btn">Cancel</button>
+    <button id="confirm-btn">Transmit</button>
+  </div>
+  <script src="confirm.js"></script>
+</body>
+</html>

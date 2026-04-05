@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, clipboard, globalShortcut, nativeImage, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -7,10 +7,12 @@ const {
   getConfig, setConfig,
   getServers, getActiveServer, setActiveServer,
   addServer, updateServer, deleteServer,
-  addHistoryEntry, getHistory, clearHistory
+  addHistoryEntry, getHistory, clearHistory,
+  getSkipQuickConfirm, setSkipQuickConfirm
 } = require('./lib/config');
 
 let mainWindow;
+let confirmWindow = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -30,7 +32,137 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
-app.whenReady().then(createWindow);
+// --- Shared upload logic ---
+async function performUpload(imageBuffer, thumbnail) {
+  const config = getConfig();
+
+  if (!config.host || !config.username || !config.remotePath) {
+    return { success: false, error: 'Please configure your server settings first.' };
+  }
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const filename = `screenshot_${timestamp}.png`;
+  const tempPath = path.join(os.tmpdir(), filename);
+
+  try {
+    const buffer = Buffer.from(imageBuffer);
+    fs.writeFileSync(tempPath, buffer);
+
+    const remotePath = config.remotePath.replace(/\/$/, '');
+    const remoteFilePath = `${remotePath}/${filename}`;
+
+    await uploadFile(config, tempPath, remoteFilePath);
+
+    fs.unlinkSync(tempPath);
+    clipboard.writeText(remoteFilePath);
+
+    addHistoryEntry({
+      filename,
+      remotePath: remoteFilePath,
+      host: config.host,
+      timestamp: new Date().toISOString(),
+      thumbnail: thumbnail || null
+    });
+
+    return { success: true, remotePath: remoteFilePath };
+  } catch (err) {
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    return { success: false, error: err.message };
+  }
+}
+
+// --- Global shortcut: quick transmit from clipboard ---
+function handleQuickTransmit() {
+  const img = clipboard.readImage();
+  if (img.isEmpty()) {
+    new Notification({ title: 'Image Mule', body: 'No image in clipboard.' }).show();
+    return;
+  }
+
+  const pngBuffer = img.toPNG();
+  const dataUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+
+  // Generate thumbnail using nativeImage resize
+  const thumb = img.resize({ width: 100 });
+  const thumbDataUrl = `data:image/png;base64,${thumb.toPNG().toString('base64')}`;
+
+  if (getSkipQuickConfirm()) {
+    // Upload directly without confirmation
+    performUpload(Array.from(pngBuffer), thumbDataUrl).then(result => {
+      if (result.success) {
+        new Notification({ title: 'Image Mule', body: `Transmitted. Path copied.` }).show();
+      } else {
+        new Notification({ title: 'Image Mule', body: `Upload failed: ${result.error}` }).show();
+      }
+    });
+    return;
+  }
+
+  // Show confirmation window
+  if (confirmWindow && !confirmWindow.isDestroyed()) {
+    confirmWindow.focus();
+    return;
+  }
+
+  confirmWindow = new BrowserWindow({
+    width: 400,
+    height: 380,
+    resizable: false,
+    alwaysOnTop: true,
+    frame: false,
+    backgroundColor: '#111110',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-confirm.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  confirmWindow.loadFile(path.join(__dirname, 'renderer', 'confirm.html'));
+
+  confirmWindow.webContents.once('did-finish-load', () => {
+    confirmWindow.webContents.send('show-image', dataUrl);
+  });
+
+  // One-time listener for this confirmation
+  const handler = (event, response) => {
+    if (!response.confirmed) {
+      if (confirmWindow && !confirmWindow.isDestroyed()) confirmWindow.close();
+      confirmWindow = null;
+      return;
+    }
+
+    if (response.skipFuture) {
+      setSkipQuickConfirm(true);
+    }
+
+    performUpload(Array.from(pngBuffer), thumbDataUrl).then(result => {
+      if (confirmWindow && !confirmWindow.isDestroyed()) confirmWindow.close();
+      confirmWindow = null;
+      if (result.success) {
+        new Notification({ title: 'Image Mule', body: `Transmitted. Path copied.` }).show();
+      } else {
+        new Notification({ title: 'Image Mule', body: `Upload failed: ${result.error}` }).show();
+      }
+    });
+  };
+
+  ipcMain.once('confirm-upload', handler);
+
+  confirmWindow.on('closed', () => {
+    ipcMain.removeListener('confirm-upload', handler);
+    confirmWindow = null;
+  });
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  globalShortcut.register('CommandOrControl+Option+Control+P', handleQuickTransmit);
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
@@ -52,47 +184,7 @@ ipcMain.handle('save-config', (event, config) => {
 });
 
 ipcMain.handle('upload-screenshot', async (event, imageBuffer, thumbnail) => {
-  const config = getConfig();
-
-  if (!config.host || !config.username || !config.remotePath) {
-    return { success: false, error: 'Please configure your server settings first.' };
-  }
-
-  // Write buffer to temp file
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const filename = `screenshot_${timestamp}.png`;
-  const tempPath = path.join(os.tmpdir(), filename);
-
-  try {
-    const buffer = Buffer.from(imageBuffer);
-    fs.writeFileSync(tempPath, buffer);
-
-    const remotePath = config.remotePath.replace(/\/$/, '');
-    const remoteFilePath = `${remotePath}/${filename}`;
-
-    await uploadFile(config, tempPath, remoteFilePath);
-
-    // Clean up temp file
-    fs.unlinkSync(tempPath);
-
-    // Copy remote path to clipboard
-    clipboard.writeText(remoteFilePath);
-
-    // Record in history
-    addHistoryEntry({
-      filename,
-      remotePath: remoteFilePath,
-      host: config.host,
-      timestamp: new Date().toISOString(),
-      thumbnail: thumbnail || null
-    });
-
-    return { success: true, remotePath: remoteFilePath };
-  } catch (err) {
-    // Clean up temp file on error
-    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-    return { success: false, error: err.message };
-  }
+  return performUpload(imageBuffer, thumbnail);
 });
 
 ipcMain.handle('get-history', () => {
@@ -141,4 +233,12 @@ ipcMain.handle('test-connection', async () => {
   } catch (err) {
     return { success: false, error: err.message };
   }
+});
+
+// --- Quick confirm setting ---
+ipcMain.handle('get-skip-quick-confirm', () => getSkipQuickConfirm());
+
+ipcMain.handle('set-skip-quick-confirm', (event, val) => {
+  setSkipQuickConfirm(val);
+  return { success: true };
 });

@@ -14,5 +14,8 @@ contextBridge.exposeInMainWorld('api', {
   setActiveServer: (id) => ipcRenderer.invoke('set-active-server', id),
   addServer: (server) => ipcRenderer.invoke('add-server', server),
   updateServer: (id, config) => ipcRenderer.invoke('update-server', id, config),
-  deleteServer: (id) => ipcRenderer.invoke('delete-server', id)
+  deleteServer: (id) => ipcRenderer.invoke('delete-server', id),
+  // Quick transmit settings
+  getSkipQuickConfirm: () => ipcRenderer.invoke('get-skip-quick-confirm'),
+  setSkipQuickConfirm: (val) => ipcRenderer.invoke('set-skip-quick-confirm', val)
 });
