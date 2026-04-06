@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, clipboard, globalShortcut, nativeImage, Notification } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -261,4 +262,60 @@ ipcMain.handle('set-global-shortcut', (event, shortcut) => {
   setGlobalShortcut(shortcut);
   registerQuickTransmitShortcut();
   return { success: true };
+});
+
+// --- Auto-updater ---
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
+
+function sendUpdateStatus(status, info) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-status', status, info);
+  }
+}
+
+autoUpdater.on('update-available', (info) => {
+  sendUpdateStatus('available', { version: info.version });
+});
+
+autoUpdater.on('update-not-available', () => {
+  sendUpdateStatus('not-available');
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  sendUpdateStatus('downloading', { percent: Math.round(progress.percent) });
+});
+
+autoUpdater.on('update-downloaded', () => {
+  sendUpdateStatus('downloaded');
+});
+
+autoUpdater.on('error', (err) => {
+  sendUpdateStatus('error', { message: err.message });
+});
+
+ipcMain.handle('check-for-update', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('install-update', () => {
+  autoUpdater.quitAndInstall();
+});
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
 });

@@ -27,10 +27,16 @@
       "target": [
         "AppImage"
       ]
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "palpen",
+      "repo": "image-mule"
     }
   },
   "dependencies": {
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.8.3",
     "ssh2-sftp-client": "^9.1.0"
   },
   "devDependencies": {

@@ -49,6 +49,29 @@ body {
   flex-shrink: 0;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.titlebar-update {
+  -webkit-app-region: no-drag;
+  position: absolute;
+  right: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s ease-out, border-color 0.15s ease-out;
+}
+
+.titlebar-update:hover {
+  opacity: 1;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Tabs */
@@ -624,4 +647,35 @@ input::placeholder {
   background: var(--success);
   border-color: var(--success);
   color: var(--bg);
+}
+
+/* Update bar */
+.update-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.update-action {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s ease-out;
+}
+
+.update-action:hover {
+  background: var(--accent-hover);
 }
