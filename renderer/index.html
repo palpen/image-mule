@@ -10,6 +10,7 @@
   <!-- Draggable title bar area -->
   <div class="titlebar">
     <span class="titlebar-text">Image Mule</span>
+    <button id="check-update-btn" class="titlebar-update" title="Check for updates">v<span id="app-version"></span></button>
   </div>
 
   <!-- Tab bar -->
@@ -102,6 +103,12 @@
     <div id="history-list" class="history-list">
       <div class="history-empty">No transmissions yet.</div>
     </div>
+  </div>
+
+  <!-- Update banner -->
+  <div id="update-bar" class="update-bar" style="display: none;">
+    <span id="update-message"></span>
+    <button id="update-action" class="update-action"></button>
   </div>
 
   <script src="renderer.js"></script>

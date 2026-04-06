@@ -19,5 +19,11 @@ contextBridge.exposeInMainWorld('api', {
   getSkipQuickConfirm: () => ipcRenderer.invoke('get-skip-quick-confirm'),
   setSkipQuickConfirm: (val) => ipcRenderer.invoke('set-skip-quick-confirm', val),
   getGlobalShortcut: () => ipcRenderer.invoke('get-global-shortcut'),
-  setGlobalShortcut: (shortcut) => ipcRenderer.invoke('set-global-shortcut', shortcut)
+  setGlobalShortcut: (shortcut) => ipcRenderer.invoke('set-global-shortcut', shortcut),
+  // Auto-update
+  checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  onUpdateStatus: (callback) => ipcRenderer.on('update-status', (event, status, info) => callback(status, info))
 });

@@ -474,6 +474,83 @@ resetShortcutBtn.addEventListener('click', async () => {
   shortcutDisplay.textContent = formatShortcut(DEFAULT_SHORTCUT);
 });
 
+// --- Auto-update ---
+const updateBar = document.getElementById('update-bar');
+const updateMessage = document.getElementById('update-message');
+const updateAction = document.getElementById('update-action');
+const checkUpdateBtn = document.getElementById('check-update-btn');
+const appVersionSpan = document.getElementById('app-version');
+
+let updateState = 'idle'; // idle, checking, available, downloading, downloaded, error
+
+async function initVersion() {
+  const version = await window.api.getAppVersion();
+  appVersionSpan.textContent = version;
+}
+
+checkUpdateBtn.addEventListener('click', async () => {
+  if (updateState === 'checking' || updateState === 'downloading') return;
+  updateState = 'checking';
+  updateBar.style.display = 'flex';
+  updateMessage.textContent = 'Checking for updates...';
+  updateAction.style.display = 'none';
+  await window.api.checkForUpdate();
+});
+
+window.api.onUpdateStatus((status, info) => {
+  updateBar.style.display = 'flex';
+
+  switch (status) {
+    case 'available':
+      updateState = 'available';
+      updateMessage.textContent = `v${info.version} available`;
+      updateAction.textContent = 'Download';
+      updateAction.style.display = '';
+      updateAction.onclick = async () => {
+        updateState = 'downloading';
+        updateAction.style.display = 'none';
+        updateMessage.textContent = 'Downloading... 0%';
+        await window.api.downloadUpdate();
+      };
+      break;
+
+    case 'not-available':
+      updateState = 'idle';
+      updateMessage.textContent = 'You\'re on the latest version';
+      updateAction.style.display = 'none';
+      setTimeout(() => { updateBar.style.display = 'none'; }, 3000);
+      break;
+
+    case 'downloading':
+      updateState = 'downloading';
+      updateMessage.textContent = `Downloading... ${info.percent}%`;
+      updateAction.style.display = 'none';
+      break;
+
+    case 'downloaded':
+      updateState = 'downloaded';
+      updateMessage.textContent = 'Update ready';
+      updateAction.textContent = 'Restart';
+      updateAction.style.display = '';
+      updateAction.onclick = () => {
+        window.api.installUpdate();
+      };
+      break;
+
+    case 'error':
+      updateState = 'error';
+      updateMessage.textContent = `Update failed: ${info.message}`;
+      updateAction.textContent = 'Retry';
+      updateAction.style.display = '';
+      updateAction.onclick = () => checkUpdateBtn.click();
+      setTimeout(() => {
+        if (updateState === 'error') updateBar.style.display = 'none';
+      }, 5000);
+      break;
+  }
+});
+
 // --- Init ---
 loadServers();
 loadShortcut();
+initVersion();
