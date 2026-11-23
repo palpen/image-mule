@@ -1,7 +1,21 @@
 // Mock electron-store before requiring config
 const mockData = {};
+jest.mock('electron', () => ({
+  safeStorage: {
+    isEncryptionAvailable: jest.fn(() => true),
+    getSelectedStorageBackend: () => 'gnome_libsecret',
+    encryptString: text => Buffer.from('sealed-' + text),
+    decryptString: buffer => buffer.toString().slice(7)
+  }
+}));
 jest.mock('electron-store', () => {
   return jest.fn().mockImplementation(() => ({
+    path: '/nonexistent/image-mule-test.json',
+    get store() { return structuredClone(mockData); },
+    set store(value) {
+      Object.keys(mockData).forEach(key => delete mockData[key]);
+      Object.assign(mockData, value);
+    },
     get: (key, defaultVal) => key in mockData ? mockData[key] : defaultVal,
     set: (key, val) => { mockData[key] = val; },
     has: (key) => key in mockData,
@@ -197,6 +211,7 @@ describe('Migration', () => {
 
     jest.resetModules();
     const freshConfig = require('../lib/config');
+    freshConfig.migrateIfNeeded();
 
     const servers = freshConfig.getServers();
     expect(servers).toHaveLength(1);
@@ -217,7 +232,44 @@ describe('Migration', () => {
 
     jest.resetModules();
     const freshConfig = require('../lib/config');
+    freshConfig.migrateIfNeeded();
 
     expect(freshConfig.getServers()).toHaveLength(0);
   });
+});
+
+test('only main-owned actions can select files and approve pins', () => {
+  const server = config.addServer({ name: 'One', host: 'one', password: 'unused', hostFingerprint: 'ignored', privateKeyPath: '/ignored' });
+  expect(server).not.toHaveProperty('password');
+  expect(server).not.toHaveProperty('hostFingerprint');
+  expect(server.privateKeyPath).toBe('~/.ssh/id_rsa');
+  config.approveHost(server, 'approved');
+  config.updateServer(server.id, { hostFingerprint: 'other', privateKeyPath: '/other' });
+  expect(config.getActiveServer().hostFingerprint).toBe('approved');
+  config.updateServer(server.id, { host: 'two' });
+  expect(config.getActiveServer()).not.toHaveProperty('hostFingerprint');
+  expect(() => config.approveHost({ ...server, host: 'one' }, 'old')).toThrow('changed');
+});
+
+test('migration removes legacy passwords, seals thumbnails, and is idempotent', () => {
+  const thumbnail = 'data:image/png;base64,YWJj';
+  mockData.servers = [{ id: 'legacy', host: 'host', password: 'old', hostFingerprint: 'never-approved', useAgent: true }];
+  mockData.history = [{ filename: 'old.png', thumbnail }];
+  mockData.password = 'flat';
+  config.migrateIfNeeded();
+  expect(mockData.servers[0]).not.toHaveProperty('password');
+  expect(mockData.servers[0]).not.toHaveProperty('hostFingerprint');
+  expect(mockData.servers[0]).not.toHaveProperty('useAgent');
+  expect(mockData).not.toHaveProperty('password');
+  expect(mockData.history[0]).not.toHaveProperty('thumbnail');
+  expect(config.getHistory()[0].thumbnail).toBe(thumbnail);
+  const saved = structuredClone(mockData);
+  config.migrateIfNeeded();
+  expect(mockData).toEqual(saved);
+});
+
+test('stores metadata only when secure storage is unavailable', () => {
+  require('electron').safeStorage.isEncryptionAvailable.mockReturnValue(false);
+  config.addHistoryEntry({ filename: 'recent.png', thumbnail: 'data:image/png;base64,YWJj' });
+  expect(mockData.history).toEqual([{ filename: 'recent.png' }]);
 });

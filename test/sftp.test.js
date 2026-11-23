@@ -1,153 +1,81 @@
+const crypto = require('node:crypto');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 
-// Mock ssh2-sftp-client
 const mockSftp = {
-  connect: jest.fn().mockResolvedValue(undefined),
-  mkdir: jest.fn().mockResolvedValue(undefined),
-  put: jest.fn().mockResolvedValue(undefined),
-  exists: jest.fn().mockResolvedValue('d'),
-  list: jest.fn().mockResolvedValue([]),
-  end: jest.fn().mockResolvedValue(undefined)
+  connect: jest.fn(), put: jest.fn(), exists: jest.fn(), end: jest.fn(),
+  sftp: { mkdir: jest.fn() }
 };
-
-jest.mock('ssh2-sftp-client', () => {
-  return jest.fn().mockImplementation(() => mockSftp);
-});
-
-// Mock fs for private key reading
-jest.mock('fs', () => ({
-  readFileSync: jest.fn().mockReturnValue('mock-private-key-content'),
-  writeFileSync: jest.fn(),
-  unlinkSync: jest.fn(),
-  existsSync: jest.fn().mockReturnValue(false)
-}));
-
+jest.mock('ssh2-sftp-client', () => jest.fn(() => mockSftp));
+jest.mock('fs', () => ({ readFileSync: jest.fn(() => 'private key') }));
 const { uploadFile, testConnection } = require('../lib/sftp');
-
+const key = Buffer.from('host-key-test-fixture');
+const profile = {
+  host: 'server', username: 'user', privateKeyPath: '~/.ssh/id_rsa', remotePath: '/folder',
+  hostFingerprint: 'SHA256:' + crypto.createHash('sha256').update(key).digest('base64url').replaceAll('-', '+').replaceAll('_', '/')
+};
+const buffer = Buffer.from('sample');
 beforeEach(() => {
   jest.clearAllMocks();
-  mockSftp.connect.mockResolvedValue(undefined);
-  mockSftp.mkdir.mockResolvedValue(undefined);
-  mockSftp.put.mockResolvedValue(undefined);
+  mockSftp.connect.mockImplementation(async conn => {
+    if (!conn.hostVerifier(key)) throw new Error('host denied');
+  });
   mockSftp.exists.mockResolvedValue('d');
-  mockSftp.end.mockResolvedValue(undefined);
+  mockSftp.put.mockResolvedValue(undefined);
 });
 
-describe('uploadFile', () => {
-  const config = {
-    host: 'example.com',
-    port: 22,
-    username: 'user',
-    privateKeyPath: '~/.ssh/id_rsa',
-    remotePath: '/remote/path'
-  };
-
-  test('connects with correct config', async () => {
-    await uploadFile(config, '/tmp/test.png', '/remote/path/test.png');
-    expect(mockSftp.connect).toHaveBeenCalledWith({
-      host: 'example.com',
-      port: 22,
-      username: 'user',
-      privateKey: 'mock-private-key-content'
-    });
-  });
-
-  test('creates remote directory', async () => {
-    await uploadFile(config, '/tmp/test.png', '/remote/path/test.png');
-    expect(mockSftp.mkdir).toHaveBeenCalledWith('/remote/path', true);
-  });
-
-  test('uploads file to correct remote path', async () => {
-    await uploadFile(config, '/tmp/test.png', '/remote/path/test.png');
-    expect(mockSftp.put).toHaveBeenCalledWith('/tmp/test.png', '/remote/path/test.png');
-  });
-
-  test('closes connection after upload', async () => {
-    await uploadFile(config, '/tmp/test.png', '/remote/path/test.png');
-    expect(mockSftp.end).toHaveBeenCalled();
-  });
-
-  test('closes connection even on error', async () => {
-    mockSftp.put.mockRejectedValue(new Error('upload failed'));
-    await expect(uploadFile(config, '/tmp/test.png', '/remote/path/test.png'))
-      .rejects.toThrow('upload failed');
-    expect(mockSftp.end).toHaveBeenCalled();
-  });
-
-  test('uses password when no private key', async () => {
-    const pwConfig = { host: 'example.com', port: 22, username: 'user', password: 'secret' };
-    await uploadFile(pwConfig, '/tmp/test.png', '/remote/path/test.png');
-    expect(mockSftp.connect).toHaveBeenCalledWith({
-      host: 'example.com',
-      port: 22,
-      username: 'user',
-      password: 'secret'
-    });
-  });
-
-  test('defaults port to 22', async () => {
-    const noPortConfig = { host: 'example.com', username: 'user', privateKeyPath: '~/.ssh/id_rsa' };
-    await uploadFile(noPortConfig, '/tmp/test.png', '/remote/path/test.png');
-    expect(mockSftp.connect).toHaveBeenCalledWith(
-      expect.objectContaining({ port: 22 })
-    );
-  });
-
-  test('expands ~ in private key path', async () => {
-    const fs = require('fs');
-    await uploadFile(config, '/tmp/test.png', '/remote/path/test.png');
-    expect(fs.readFileSync).toHaveBeenCalledWith(
-      path.join(os.homedir(), '.ssh/id_rsa'),
-      'utf8'
-    );
-  });
+test.each([[undefined, 'HOST_KEY_UNKNOWN'], ['other', 'HOST_KEY_CHANGED']])('refuses unapproved key %s before upload', async (hostFingerprint, code) => {
+  await expect(uploadFile({ ...profile, hostFingerprint }, buffer, '/folder/a.png'))
+    .rejects.toMatchObject({ code, fingerprint: profile.hostFingerprint });
+  expect(mockSftp.put).not.toHaveBeenCalled();
+  expect(mockSftp.end).toHaveBeenCalled();
 });
 
-describe('testConnection', () => {
-  const config = {
-    host: 'example.com',
-    port: 22,
-    username: 'user',
-    privateKeyPath: '~/.ssh/id_rsa',
-    remotePath: '/remote/path'
-  };
-
-  test('succeeds when remote path is a directory', async () => {
-    mockSftp.exists.mockResolvedValue('d');
-    await expect(testConnection(config)).resolves.not.toThrow();
+test('uploads bytes exclusively with owner access, leaving existing directory permissions alone', async () => {
+  await uploadFile(profile, buffer, '/folder/a.png');
+  expect(mockSftp.connect).toHaveBeenCalledWith({
+    host: 'server', port: 22, username: 'user', retries: 0, hostVerifier: expect.any(Function), privateKey: 'private key'
   });
+  expect(fs.readFileSync).toHaveBeenCalledWith(path.join(os.homedir(), '.ssh/id_rsa'), 'utf8');
+  expect(mockSftp.put).toHaveBeenCalledWith(buffer, '/folder/a.png', { writeStreamOptions: { flags: 'wx', mode: 0o600 } });
+  expect(mockSftp.sftp.mkdir).not.toHaveBeenCalled();
+  expect(mockSftp.end).toHaveBeenCalled();
+});
 
-  test('throws when remote path does not exist', async () => {
-    mockSftp.exists.mockResolvedValue(false);
-    mockSftp.list.mockResolvedValue([]);
-    await expect(testConnection(config)).rejects.toThrow('does not exist');
-  });
+test('creates missing directories with owner-only mode', async () => {
+  mockSftp.exists.mockResolvedValueOnce(false);
+  mockSftp.sftp.mkdir.mockImplementation((_dir, _attrs, cb) => cb());
+  await uploadFile(profile, buffer, '/folder/a.png');
+  expect(mockSftp.sftp.mkdir).toHaveBeenCalledWith('/folder', { mode: 0o700 }, expect.any(Function));
+});
 
-  test('throws when remote path is not a directory', async () => {
-    mockSftp.exists.mockResolvedValue('-');
-    await expect(testConnection(config)).rejects.toThrow('not a directory');
-  });
+test('ends connection on upload error', async () => {
+  mockSftp.put.mockRejectedValueOnce(new Error('upload failed'));
+  await expect(uploadFile(profile, buffer, '/folder/a.png')).rejects.toThrow('upload failed');
+  expect(mockSftp.end).toHaveBeenCalled();
+});
 
-  test('includes parent directory listing in error hint', async () => {
-    mockSftp.exists.mockResolvedValue(false);
-    mockSftp.list.mockResolvedValue([
-      { name: 'Documents', type: 'd' },
-      { name: 'Desktop', type: 'd' },
-      { name: 'file.txt', type: '-' }
-    ]);
-    await expect(testConnection(config)).rejects.toThrow('Documents, Desktop');
-  });
+test('agent authentication never reads a key file', async () => {
+  const original = process.env.SSH_AUTH_SOCK;
+  process.env.SSH_AUTH_SOCK = '/agent';
+  try {
+    await testConnection({ ...profile, useAgent: true });
+    expect(mockSftp.connect).toHaveBeenCalledWith(expect.objectContaining({ agent: '/agent' }));
+    expect(fs.readFileSync).not.toHaveBeenCalled();
+  } finally {
+    if (original === undefined) delete process.env.SSH_AUTH_SOCK;
+    else process.env.SSH_AUTH_SOCK = original;
+  }
+});
 
-  test('closes connection after test', async () => {
-    await testConnection(config);
-    expect(mockSftp.end).toHaveBeenCalled();
-  });
+test('rejects ambiguous relative private key paths', async () => {
+  await expect(testConnection({ ...profile, privateKeyPath: '~another/key' })).rejects.toThrow('absolute');
+  expect(fs.readFileSync).not.toHaveBeenCalled();
+});
 
-  test('closes connection even on error', async () => {
-    mockSftp.exists.mockResolvedValue(false);
-    mockSftp.list.mockResolvedValue([]);
-    try { await testConnection(config); } catch (_) {}
-    expect(mockSftp.end).toHaveBeenCalled();
-  });
+test.each([[false, 'does not exist'], ['-', 'not a directory']])('explains unavailable remote directory %s', async (type, message) => {
+  mockSftp.exists.mockResolvedValue(type);
+  await expect(testConnection(profile)).rejects.toThrow(message);
+  expect(mockSftp.end).toHaveBeenCalled();
 });

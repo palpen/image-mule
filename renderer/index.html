@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image Mule</title>
   <link rel="stylesheet" href="styles.css">
@@ -27,8 +28,8 @@
         <p>Paste or drop an image</p>
         <span class="hint">Cmd+V · drag &amp; drop</span>
       </div>
-      <img id="preview" style="display:none;" />
-      <button id="clear-btn" style="display:none;">✕</button>
+      <img id="preview" hidden />
+      <button id="clear-btn" hidden>✕</button>
     </div>
 
     <!-- Server bar: selector + gear + add -->
@@ -37,7 +38,7 @@
       <button id="settings-toggle" class="server-action" title="Server Settings">⚙</button>
       <button id="add-server-btn" class="server-action" title="New Server">+</button>
     </div>
-    <div id="settings-panel" class="settings" style="display: none;">
+    <div id="settings-panel" class="settings" hidden>
       <div class="field">
         <label for="server-name">Name</label>
         <input type="text" id="server-name" placeholder="My Server" />
@@ -58,7 +59,11 @@
       </div>
       <div class="field">
         <label for="privateKeyPath">SSH Key</label>
-        <input type="text" id="privateKeyPath" placeholder="~/.ssh/id_rsa" />
+        <div class="field-row">
+          <input type="text" id="privateKeyPath" readonly />
+          <button id="choose-key" class="secondary">Choose key…</button>
+        </div>
+        <label><input type="checkbox" id="useAgent"> Use SSH agent</label>
       </div>
       <div class="field">
         <label for="remotePath">Remote Folder</label>
@@ -66,6 +71,7 @@
       </div>
       <div class="settings-actions">
         <button id="delete-server-btn" class="secondary danger">Delete Server</button>
+        <button id="open-releases" class="secondary">Check for updates</button>
         <button id="test-btn" class="secondary">Test Connection</button>
       </div>
     </div>
@@ -83,15 +89,15 @@
     </div>
 
     <!-- Status -->
-    <div id="status" class="status"></div>
+    <div id="status" role="status" class="status"></div>
   </div>
 
   <!-- History page -->
-  <div class="container page" id="page-history" style="display: none;">
+  <div class="container page" id="page-history" hidden>
     <div class="history-toolbar">
       <div class="clear-wrapper">
         <button id="clear-history-btn" class="secondary">Clear...</button>
-        <div id="clear-dropdown" class="clear-dropdown" style="display: none;">
+        <div id="clear-dropdown" class="clear-dropdown" hidden>
           <button class="clear-option" data-range="hour">Last Hour</button>
           <button class="clear-option" data-range="day">Last 24 Hours</button>
           <button class="clear-option" data-range="month">Last 30 Days</button>

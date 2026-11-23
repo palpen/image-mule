@@ -19,7 +19,7 @@
 - **Data/Tables:** JetBrains Mono 400 — developer lineage, supports tabular-nums, built for paths and filenames
 - **Code:** JetBrains Mono 400
 - **Status text:** JetBrains Mono 400 at 12-13px
-- **Loading:** Google Fonts CDN — `https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap`
+- **Loading:** Fontsource variable Latin WOFF2 files (5.3.0) bundled in `renderer/fonts/`.
 - **Scale:**
   - Display: 32px (app title, hero)
   - Heading: 18px

@@ -16,7 +16,8 @@
       "category": "public.app-category.utilities",
       "target": [
         "dmg"
-      ]
+      ],
+      "hardenedRuntime": true
     },
     "win": {
       "target": [
@@ -27,15 +28,34 @@
       "target": [
         "AppImage"
       ]
-    }
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "preload-confirm.js",
+      "lib/**/*.js",
+      "renderer/**/*",
+      "LICENSE",
+      "!**/node_modules/cpu-features/**/*",
+      "!**/node_modules/ssh2/lib/protocol/crypto/build/**/*"
+    ],
+    "artifactName": "Image-Mule-${version}-${os}-${arch}.${ext}",
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true,
+      "enableEmbeddedAsarIntegrityValidation": true
+    },
+    "npmRebuild": false
   },
   "dependencies": {
     "electron-store": "^8.1.0",
     "ssh2-sftp-client": "^9.1.0"
   },
   "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1",
-    "jest": "^30.3.0"
+    "electron": "45.4.1",
+    "electron-builder": "26.18.0",
+    "jest": "30.5.2"
   }
 }

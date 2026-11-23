@@ -1,3 +1,17 @@
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('fonts/space-grotesk-latin-wght-normal.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+}
+
 :root {
   --bg: #111110;
   --surface: #1a1917;
@@ -18,7 +32,6 @@
   --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 * {
   margin: 0;
@@ -625,3 +638,6 @@ input::placeholder {
   border-color: var(--success);
   color: var(--bg);
 }
+
+[hidden] { display: none !important; }
+#useAgent { width: auto; }

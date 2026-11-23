@@ -12,9 +12,9 @@ const addServerBtn = document.getElementById('add-server-btn');
 const deleteServerBtn = document.getElementById('delete-server-btn');
 
 // Config fields (excluding server-name which is handled separately)
-const fields = ['host', 'username', 'port', 'privateKeyPath', 'remotePath'];
+const fields = ['host', 'username', 'port', 'remotePath'];
 let currentImageBuffer = null;
-let currentThumbnail = null;
+let imageRevision = 0;
 
 // --- Tabs ---
 const tabs = document.querySelectorAll('.tab');
@@ -25,8 +25,8 @@ tabs.forEach(tab => {
     const target = tab.dataset.tab;
     tabs.forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
-    pages.forEach(p => p.style.display = 'none');
-    document.getElementById(`page-${target}`).style.display = 'flex';
+    pages.forEach(p => p.hidden = true);
+    document.getElementById(`page-${target}`).hidden = false;
 
     if (target === 'history') {
       loadHistory();
@@ -36,8 +36,8 @@ tabs.forEach(tab => {
 
 // --- Collapsible settings ---
 settingsToggle.addEventListener('click', () => {
-  const isOpen = settingsPanel.style.display !== 'none';
-  settingsPanel.style.display = isOpen ? 'none' : 'flex';
+  const isOpen = !settingsPanel.hidden;
+  settingsPanel.hidden = isOpen;
   settingsToggle.classList.toggle('open', !isOpen);
 });
 
@@ -46,14 +46,14 @@ async function loadServers() {
   const servers = await window.api.getServers();
   const active = await window.api.getActiveServer();
 
-  serverSelect.innerHTML = '';
+  serverSelect.replaceChildren();
 
   if (servers.length === 0) {
     const opt = document.createElement('option');
     opt.value = '';
     opt.textContent = 'No servers configured';
     serverSelect.appendChild(opt);
-    deleteServerBtn.style.display = 'none';
+    deleteServerBtn.hidden = true;
     return;
   }
 
@@ -65,14 +65,16 @@ async function loadServers() {
     serverSelect.appendChild(opt);
   });
 
-  deleteServerBtn.style.display = servers.length > 0 ? '' : 'none';
-  loadActiveServerConfig();
+  deleteServerBtn.hidden = servers.length === 0;
+  await loadActiveServerConfig();
 }
 
 async function loadActiveServerConfig() {
   const server = await window.api.getActiveServer();
   if (!server) return;
 
+  document.getElementById('privateKeyPath').value = server.privateKeyPath || '';
+  document.getElementById('useAgent').checked = Boolean(server.useAgent);
   document.getElementById('server-name').value = server.name || '';
   for (const field of fields) {
     const el = document.getElementById(field);
@@ -86,23 +88,16 @@ serverSelect.addEventListener('change', async () => {
   const id = serverSelect.value;
   if (id) {
     await window.api.setActiveServer(id);
-    loadActiveServerConfig();
+    await loadActiveServerConfig();
   }
 });
 
 // --- Add server ---
 addServerBtn.addEventListener('click', async () => {
-  const server = await window.api.addServer({
-    name: 'New Server',
-    host: '',
-    port: 22,
-    username: '',
-    privateKeyPath: '~/.ssh/id_rsa',
-    remotePath: '/home/user/screenshots'
-  });
+  await window.api.addServer();
   await loadServers();
   // Open settings so user can configure
-  settingsPanel.style.display = 'flex';
+  settingsPanel.hidden = false;
   settingsToggle.classList.add('open');
   document.getElementById('server-name').focus();
 });
@@ -122,8 +117,9 @@ function getConfigFromFields() {
   const config = { name: document.getElementById('server-name').value };
   for (const field of fields) {
     const el = document.getElementById(field);
-    config[field] = field === 'port' ? parseInt(el.value) || 22 : el.value;
+    config[field] = field === 'port' ? Number(el.value || 22) : el.value;
   }
+  config.useAgent = document.getElementById('useAgent').checked;
   return config;
 }
 
@@ -133,63 +129,69 @@ async function saveCurrentServer() {
   const config = getConfigFromFields();
   await window.api.updateServer(id, config);
   // Update dropdown label
-  const opt = serverSelect.querySelector(`option[value="${id}"]`);
+  const opt = serverSelect.selectedOptions[0];
   if (opt) opt.textContent = config.name || config.host || 'Untitled';
 }
 
-for (const field of ['server-name', ...fields]) {
-  document.getElementById(field).addEventListener('change', saveCurrentServer);
+for (const field of ['server-name', 'useAgent', ...fields]) {
+  document.getElementById(field).addEventListener('change', () => saveCurrentServer().catch(showError));
 }
 
 // --- Image handling ---
-function generateThumbnail(dataUrl, maxWidth = 100) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = maxWidth / img.width;
-      const canvas = document.createElement('canvas');
-      canvas.width = maxWidth;
-      canvas.height = img.height * scale;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/jpeg', 0.6));
-    };
-    img.src = dataUrl;
-  });
+function showError(error) {
+  setStatus(error.message, 'error');
 }
 
-function setImage(blob) {
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    preview.src = e.target.result;
-    preview.style.display = 'block';
-    placeholder.style.display = 'none';
-    clearBtn.style.display = 'flex';
-    dropZone.classList.add('has-image');
-    sendBtn.disabled = false;
+document.getElementById('choose-key').addEventListener('click', async () => {
+  if (!serverSelect.value) return;
+  await window.api.chooseKey(serverSelect.value);
+  await loadActiveServerConfig();
+});
+document.getElementById('open-releases').addEventListener('click', () => window.api.openReleases());
 
-    // Generate thumbnail for history
-    currentThumbnail = await generateThumbnail(e.target.result);
-
-    // Convert to buffer for upload
-    const bufReader = new FileReader();
-    bufReader.onload = (ev) => {
-      currentImageBuffer = Array.from(new Uint8Array(ev.target.result));
-    };
-    bufReader.readAsArrayBuffer(blob);
-  };
-  reader.readAsDataURL(blob);
+async function setImage(blob) {
+  clearImage();
+  const revision = imageRevision;
+  try {
+    if (!blob || blob.size > 32 * 1024 * 1024) throw new Error('Choose an image of up to 32 MiB.');
+    const bitmap = await createImageBitmap(blob);
+    try {
+      if (revision !== imageRevision) return;
+      if (bitmap.width * bitmap.height > 32 * 1024 * 1024 || Math.max(bitmap.width, bitmap.height) > 16384) {
+        throw new Error('Image dimensions exceed the supported limits.');
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      canvas.getContext('2d').drawImage(bitmap, 0, 0);
+      const png = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!png || png.size > 32 * 1024 * 1024) throw new Error('PNG exceeds 32 MiB.');
+      const bytes = new Uint8Array(await png.arrayBuffer());
+      if (revision !== imageRevision) return;
+      currentImageBuffer = bytes;
+      preview.src = canvas.toDataURL('image/png');
+      preview.hidden = false;
+      placeholder.hidden = true;
+      clearBtn.hidden = false;
+      dropZone.classList.add('has-image');
+      sendBtn.disabled = false;
+    } finally {
+      bitmap.close();
+    }
+  } catch (error) {
+    if (revision === imageRevision) showError(error);
+  }
 }
 
 function clearImage() {
-  preview.src = '';
-  preview.style.display = 'none';
-  placeholder.style.display = 'block';
-  clearBtn.style.display = 'none';
+  preview.removeAttribute('src');
+  preview.hidden = true;
+  placeholder.hidden = false;
+  clearBtn.hidden = true;
   dropZone.classList.remove('has-image');
   sendBtn.disabled = true;
   currentImageBuffer = null;
-  currentThumbnail = null;
+  imageRevision++;
   setStatus('', '');
 }
 
@@ -231,38 +233,44 @@ dropZone.addEventListener('drop', (e) => {
 });
 
 // --- Status ---
-function setStatus(message, type) {
+function setStatus(message, type, detail) {
   status.className = `status ${type}`;
-  status.innerHTML = message;
+  status.textContent = message;
+  if (detail) {
+    const path = document.createElement('span');
+    path.className = 'path';
+    path.textContent = detail;
+    status.append(document.createElement('br'), path);
+  }
 }
 
 // --- Send ---
 sendBtn.addEventListener('click', async () => {
   if (!currentImageBuffer) return;
 
-  // Save config first
-  await saveCurrentServer();
-
+  const bytes = currentImageBuffer;
   sendBtn.disabled = true;
+  try {
+    await saveCurrentServer();
+  } catch (error) {
+    sendBtn.disabled = !currentImageBuffer;
+    return showError(error);
+  }
   sendBtn.textContent = 'Transmitting...';
   sendBtn.classList.add('uploading');
   setStatus('Connecting...', 'info');
 
-  const result = await window.api.uploadScreenshot(currentImageBuffer, currentThumbnail);
+  const result = await window.api.uploadScreenshot(bytes).catch(error => ({ error: error.message }));
 
   sendBtn.classList.remove('uploading');
   sendBtn.textContent = 'Transmit and Copy File Path';
 
   if (result.success) {
-    setStatus(
-      `✓ Transmitted. Path copied.<br><span class="path">${result.remotePath}</span>`,
-      'success'
-    );
-    sendBtn.disabled = false;
+    setStatus('✓ Transmitted. Path copied.', 'success', result.remotePath);
   } else {
     setStatus(`✗ ${result.error}`, 'error');
-    sendBtn.disabled = false;
   }
+  sendBtn.disabled = !currentImageBuffer;
 });
 
 // --- Cmd+Enter shortcut ---
@@ -274,11 +282,11 @@ document.addEventListener('keydown', (e) => {
 
 // --- Test connection ---
 testBtn.addEventListener('click', async () => {
-  await saveCurrentServer();
+  try { await saveCurrentServer(); } catch (error) { return showError(error); }
   testBtn.textContent = 'Testing...';
   setStatus('Testing...', 'info');
 
-  const result = await window.api.testConnection();
+  const result = await window.api.testConnection().catch(error => ({ error: error.message }));
 
   testBtn.textContent = 'Test Connection';
 
@@ -294,43 +302,50 @@ async function loadHistory() {
   const historyList = document.getElementById('history-list');
   const history = await window.api.getHistory();
 
-  if (history.length === 0) {
-    historyList.innerHTML = '<div class="history-empty">No transmissions yet.</div>';
-    return;
+  function element(tag, className, text) {
+    const node = document.createElement(tag);
+    node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
   }
 
-  historyList.innerHTML = history.map((entry, i) => {
+  historyList.replaceChildren();
+  if (!history.length) historyList.append(element('div', 'history-empty', 'No transmissions yet.'));
+  for (const [i, entry] of history.entries()) {
     const date = new Date(entry.timestamp);
-    const timeStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-      + ' ' + date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-
-    const thumbHtml = entry.thumbnail
-      ? `<img class="history-thumb" src="${entry.thumbnail}" alt="" />`
-      : `<div class="history-thumb-placeholder">📋</div>`;
-
-    return `
-      <div class="history-item" data-index="${i}">
-        ${thumbHtml}
-        <div class="history-info">
-          <span class="history-filename">${entry.filename}</span>
-          <span class="history-meta">${entry.host} · ${timeStr}</span>
-        </div>
-        <button class="history-copy" data-path="${entry.remotePath}" title="Copy path">
-          Copy Path
-        </button>
-      </div>
-      ${entry.thumbnail ? `<div class="history-preview" data-for="${i}" style="display:none;">
-        <img src="${entry.thumbnail}" alt="Preview" />
-      </div>` : ''}
-    `;
-  }).join('');
+    const time = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+      date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    const item = element('div', 'history-item');
+    item.dataset.index = i;
+    const info = element('div', 'history-info');
+    info.append(element('span', 'history-filename', entry.filename), element('span', 'history-meta', `${entry.host} · ${time}`));
+    const copy = element('button', 'history-copy', 'Copy Path');
+    copy.dataset.path = entry.remotePath;
+    const validImage = typeof entry.thumbnail === 'string' && entry.thumbnail.length <= 128 * 1024 &&
+      /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(entry.thumbnail);
+    if (validImage) {
+      const thumbnail = element('img', 'history-thumb');
+      thumbnail.src = entry.thumbnail;
+      thumbnail.alt = '';
+      item.append(thumbnail);
+      const expanded = element('div', 'history-preview');
+      expanded.dataset.for = i;
+      expanded.hidden = true;
+      expanded.append(thumbnail.cloneNode());
+      historyList.append(item, expanded);
+    } else {
+      item.append(element('div', 'history-thumb-placeholder', '📋'));
+      historyList.append(item);
+    }
+    item.append(info, copy);
+  }
 
   // Attach copy handlers
   historyList.querySelectorAll('.history-copy').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const pathText = btn.dataset.path;
-      await window.api.copyToClipboard(pathText);
+      try { await window.api.copyHistoryPath(pathText); } catch (error) { return showError(error); }
       const original = btn.textContent;
       btn.textContent = 'Copied!';
       btn.classList.add('copied');
@@ -347,12 +362,12 @@ async function loadHistory() {
       const idx = item.dataset.index;
       const preview = historyList.querySelector(`.history-preview[data-for="${idx}"]`);
       if (!preview) return;
-      const isOpen = preview.style.display !== 'none';
+      const isOpen = !preview.hidden;
       // Close all previews
-      historyList.querySelectorAll('.history-preview').forEach(p => p.style.display = 'none');
+      historyList.querySelectorAll('.history-preview').forEach(p => p.hidden = true);
       historyList.querySelectorAll('.history-item').forEach(i => i.classList.remove('expanded'));
       if (!isOpen) {
-        preview.style.display = 'block';
+        preview.hidden = false;
         item.classList.add('expanded');
       }
     });
@@ -365,11 +380,11 @@ const clearDropdown = document.getElementById('clear-dropdown');
 
 clearHistoryBtn.addEventListener('click', (e) => {
   e.stopPropagation();
-  clearDropdown.style.display = clearDropdown.style.display === 'none' ? 'block' : 'none';
+  clearDropdown.hidden = !clearDropdown.hidden;
 });
 
 document.addEventListener('click', () => {
-  clearDropdown.style.display = 'none';
+  clearDropdown.hidden = true;
 });
 
 const RANGES = { hour: 3600000, day: 86400000, month: 2592000000, all: null };
@@ -379,7 +394,7 @@ document.querySelectorAll('.clear-option').forEach(btn => {
     e.stopPropagation();
     const range = btn.dataset.range;
     await window.api.clearHistory(RANGES[range]);
-    clearDropdown.style.display = 'none';
+    clearDropdown.hidden = true;
     loadHistory();
   });
 });
@@ -460,8 +475,8 @@ shortcutDisplay.addEventListener('click', () => {
     shortcutDisplay.classList.remove('recording');
     document.removeEventListener('keydown', handler, true);
 
-    await window.api.setGlobalShortcut(accelerator);
-    shortcutDisplay.textContent = formatShortcut(accelerator);
+    await window.api.setGlobalShortcut(accelerator).catch(showError);
+    await loadShortcut();
   };
 
   document.addEventListener('keydown', handler, true);
@@ -470,8 +485,8 @@ shortcutDisplay.addEventListener('click', () => {
 // --- Reset shortcut ---
 const resetShortcutBtn = document.getElementById('reset-shortcut');
 resetShortcutBtn.addEventListener('click', async () => {
-  await window.api.setGlobalShortcut(DEFAULT_SHORTCUT);
-  shortcutDisplay.textContent = formatShortcut(DEFAULT_SHORTCUT);
+  await window.api.setGlobalShortcut(DEFAULT_SHORTCUT).catch(showError);
+  await loadShortcut();
 });
 
 // --- Init ---

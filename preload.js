@@ -1,23 +1,19 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
-  getConfig: () => ipcRenderer.invoke('get-config'),
-  saveConfig: (config) => ipcRenderer.invoke('save-config', config),
-  uploadScreenshot: (imageBuffer, thumbnail) => ipcRenderer.invoke('upload-screenshot', imageBuffer, thumbnail),
+  uploadScreenshot: bytes => ipcRenderer.invoke('upload-screenshot', bytes),
   testConnection: () => ipcRenderer.invoke('test-connection'),
   getHistory: () => ipcRenderer.invoke('get-history'),
-  copyToClipboard: (text) => ipcRenderer.invoke('copy-to-clipboard', text),
-  clearHistory: (olderThanMs) => ipcRenderer.invoke('clear-history', olderThanMs),
-  // Server management
+  copyHistoryPath: path => ipcRenderer.invoke('copy-history-path', path),
+  clearHistory: age => ipcRenderer.invoke('clear-history', age),
   getServers: () => ipcRenderer.invoke('get-servers'),
   getActiveServer: () => ipcRenderer.invoke('get-active-server'),
-  setActiveServer: (id) => ipcRenderer.invoke('set-active-server', id),
-  addServer: (server) => ipcRenderer.invoke('add-server', server),
+  setActiveServer: id => ipcRenderer.invoke('set-active-server', id),
+  addServer: () => ipcRenderer.invoke('add-server'),
   updateServer: (id, config) => ipcRenderer.invoke('update-server', id, config),
-  deleteServer: (id) => ipcRenderer.invoke('delete-server', id),
-  // Quick transmit settings
-  getSkipQuickConfirm: () => ipcRenderer.invoke('get-skip-quick-confirm'),
-  setSkipQuickConfirm: (val) => ipcRenderer.invoke('set-skip-quick-confirm', val),
+  chooseKey: id => ipcRenderer.invoke('choose-key', id),
+  deleteServer: id => ipcRenderer.invoke('delete-server', id),
   getGlobalShortcut: () => ipcRenderer.invoke('get-global-shortcut'),
-  setGlobalShortcut: (shortcut) => ipcRenderer.invoke('set-global-shortcut', shortcut)
+  setGlobalShortcut: shortcut => ipcRenderer.invoke('set-global-shortcut', shortcut),
+  openReleases: () => ipcRenderer.invoke('open-releases')
 });
