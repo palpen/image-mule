@@ -273,3 +273,80 @@ test('stores metadata only when secure storage is unavailable', () => {
   config.addHistoryEntry({ filename: 'recent.png', thumbnail: 'data:image/png;base64,YWJj' });
   expect(mockData.history).toEqual([{ filename: 'recent.png' }]);
 });
+
+test('key files are written only through the validated key setter', () => {
+  const server = config.addServer({ name: 'One' }, '/ignored');
+  config.updateServer(server.id, {}, '/ignored');
+  expect(config.getActiveServer().privateKeyPath).toBe('~/.ssh/id_rsa');
+  expect(() => config.setKeyFile(server.id, 'relative')).toThrow('key');
+  expect(config.setKeyFile(server.id, '/chosen')).toMatchObject({ privateKeyPath: '/chosen', useAgent: false });
+  expect(() => config.setKeyFile('missing', '/chosen')).toThrow('no longer exists');
+});
+
+describe('configuration CLI', () => {
+  const { parseCommand, runCommand, unexpectedSwitch } = require('../lib/config-cli');
+  const run = (...args) => runCommand(config, parseCommand(args));
+
+  test('an installed command accepts only its own options', () => {
+    expect(unexpectedSwitch(['config', 'server', 'add', 'Dev', '--host=one', '--ssh-agent'])).toBeUndefined();
+    expect(unexpectedSwitch(['config', 'server', 'add', '--', '--gpu-launcher=x'])).toBeUndefined();
+    expect(unexpectedSwitch(['--user-data-dir=/elsewhere', 'config', 'show'])).toBe('--user-data-dir=/elsewhere');
+    expect(unexpectedSwitch(['config', 'server', 'add', 'Dev', '--gpu-launcher=x'])).toBe('--gpu-launcher=x');
+  });
+
+  test('a new profile takes its key from the validated key setter', () => {
+    expect(run('server', 'add', 'Keyed', '--host', 'one', '--key', '~/chosen')).toMatchObject({ privateKeyPath: '~/chosen', useAgent: false });
+    const original = structuredClone(mockData);
+    expect(() => run('server', 'add', 'Shared', '--key', '~other/key')).toThrow('local absolute path');
+    expect(mockData).toEqual(original);
+  });
+
+  test('shares profiles and preferences with the desktop config', () => {
+    const first = run('server', 'add', 'Dev', '--host', 'one', '--user', 'ada', '--ssh-agent');
+    const second = run('server', 'add', 'Two');
+    run('server', 'use', first.id);
+    config.approveHost(config.getActiveServer(), 'pin');
+    run('server', 'update', 'Dev', '--key', '~/chosen', '--port', '2222');
+    expect(config.getActiveServer()).toMatchObject({ username: 'ada', port: 2222, privateKeyPath: '~/chosen', useAgent: false });
+    expect(config.getActiveServer()).not.toHaveProperty('hostFingerprint');
+    run('set', 'skip-quick-confirm', 'true');
+    run('set', 'shortcut', 'Control+P');
+    expect(run('show')).toMatchObject({ activeServerId: first.id, skipQuickConfirm: true, globalShortcut: 'Control+P' });
+    expect(run('server', 'remove', 'Dev')).toEqual({ id: first.id, activeServerId: second.id });
+  });
+
+  test('settings output excludes credentials, pins and history from existing profiles', () => {
+    mockData.servers = [{ id: 'old', host: 'example', password: 'secret', hostFingerprint: 'verified' }];
+    mockData.history = [{ thumbnail: 'private image' }];
+    const visible = JSON.stringify(run('show'));
+    for (const value of ['password', 'secret', 'hostFingerprint', 'verified', 'history', 'private image']) {
+      expect(visible).not.toContain(value);
+    }
+  });
+
+  test('previewing a flat profile preserves its settings and returns the ID used after migration', () => {
+    Object.assign(mockData, { host: 'legacy.example', password: 'fixture' });
+    const original = structuredClone(mockData);
+    const preview = run('show');
+    expect(preview.servers[0].host).toBe('legacy.example');
+    expect(mockData).toEqual(original);
+    expect(() => run('server', 'remove', 'missing')).toThrow('Unknown server');
+    expect(mockData).toEqual(original);
+    expect(run('server', 'update', preview.activeServerId, '--name', 'Renamed').name).toBe('Renamed');
+  });
+
+  test('ambiguous names require an ID and invalid options leave settings intact', () => {
+    const first = run('server', 'add', 'Same');
+    run('server', 'add', 'Same');
+    const original = structuredClone(mockData);
+    for (const args of [
+      ['server', 'remove', 'Same'], ['server', 'use', 'missing'],
+      ['server', 'update', first.id, '--port', '65536'], ['server', 'update', first.id, '--key', 'relative'],
+      ['server', 'update', first.id, '--ssh-agent', '--key', '~/key'],
+      ['server', 'update', first.id, '--host', 'ok', '--hostFingerprint', 'pin'],
+      ['set', 'shortcut', 'invalid'], ['set', 'skip-quick-confirm', 'yes']
+    ]) expect(() => run(...args)).toThrow();
+    expect(mockData).toEqual(original);
+    expect(run('server', 'update', first.id, '--name', 'Renamed').name).toBe('Renamed');
+  });
+});

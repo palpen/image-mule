@@ -2,9 +2,11 @@ const confirmBtn = document.getElementById('confirm-btn');
 const cancelBtn = document.getElementById('cancel-btn');
 const skipCheckbox = document.getElementById('skip-checkbox');
 const confirmImage = document.getElementById('confirm-image');
+const confirmStatus = document.getElementById('confirm-status');
 
-window.confirmApi.onShowImage((dataUrl) => {
+window.confirmApi.onShowImage((dataUrl, destination) => {
   confirmImage.src = dataUrl;
+  confirmStatus.textContent = destination;
 });
 
 confirmBtn.addEventListener('click', () => {

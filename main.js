@@ -4,6 +4,7 @@ const { pathToFileURL } = require('node:url');
 const { randomUUID } = require('node:crypto');
 const { uploadFile, testConnection } = require('./lib/sftp');
 const config = require('./lib/config');
+const { withSettingsLock } = require('./lib/settings-lock');
 const { profileFields, publicProfile, validatePng, validShortcut, clipboardPath } = require('./lib/validation');
 
 let mainWindow;
@@ -50,7 +51,7 @@ async function withTrustedHost(profile, operation) {
       detail: `Compare this SHA-256 fingerprint with one supplied by your server administrator.\n\n${error.fingerprint}`
     });
     if (response !== 1) throw new Error('SSH host approval cancelled.');
-    config.approveHost(profile, error.fingerprint);
+    await withSettingsLock(() => config.approveHost(profile, error.fingerprint));
     return operation({ ...profile, hostFingerprint: error.fingerprint });
   }
 }
@@ -66,7 +67,7 @@ async function performUpload(profile, buffer, image) {
     clipboard.writeText(text);
     const size = image.getSize();
     const thumbnail = image.resize(size.width >= size.height ? { width: 100 } : { height: 100 }).toDataURL();
-    config.addHistoryEntry({ filename, remotePath, host: profile.host, timestamp: new Date().toISOString(), thumbnail });
+    await withSettingsLock(() => config.addHistoryEntry({ filename, remotePath, host: profile.host, timestamp: new Date().toISOString(), thumbnail }));
     return { success: true, remotePath };
   } catch (error) {
     return { success: false, error: error.message };
@@ -77,6 +78,20 @@ function notify(body) {
   new Notification({ title: 'Image Mule', body }).show();
 }
 
+function profileLabel(profile) {
+  return profile.name || profile.host || 'Untitled';
+}
+
+function destinationLine(profile) {
+  return profile.host ? `To ${profileLabel(profile)} · ${profile.host}` : 'No server configured';
+}
+
+function displayedDestination(profileId) {
+  const profile = config.getConfig();
+  if ((profile.id ?? null) !== profileId) throw new Error('Server changed. Check the destination and transmit again.');
+  return profile;
+}
+
 function handleQuickTransmit() {
   if (confirmWindow && !confirmWindow.isDestroyed()) return confirmWindow.focus();
   try {
@@ -85,7 +100,7 @@ function handleQuickTransmit() {
     const buffer = validatePng(image.toPNG());
     const profile = config.getConfig();
     const send = () => performUpload(profile, buffer, image).then(result =>
-      notify(result.success ? 'Transmitted. Path copied.' : result.error));
+      notify(result.success ? `Transmitted to ${profileLabel(profile)}. Path copied.` : result.error));
     if (config.getSkipQuickConfirm()) return send();
 
     const win = new BrowserWindow({
@@ -94,15 +109,18 @@ function handleQuickTransmit() {
     });
     confirmWindow = win;
     win.webContents.once('did-finish-load', () => {
-      win.webContents.send('show-image', `data:image/png;base64,${buffer.toString('base64')}`);
+      win.webContents.send('show-image', `data:image/png;base64,${buffer.toString('base64')}`, destinationLine(profile));
     });
-    function confirm(event, response) {
+    async function confirm(event, response) {
       if (!fromWindow(event, win, 'confirm.html') || typeof response?.confirmed !== 'boolean' ||
           (response.confirmed && typeof response.skipFuture !== 'boolean')) return;
       ipcMain.removeListener('confirm-upload', confirm);
       win.close();
       if (response.confirmed) {
-        if (response.skipFuture) config.setSkipQuickConfirm(true);
+        if (response.skipFuture) {
+          try { await withSettingsLock(() => config.setSkipQuickConfirm(true)); }
+          catch (error) { return notify(error.message); }
+        }
         send();
       }
     }
@@ -125,6 +143,22 @@ function registerShortcut(value) {
   registeredShortcut = value;
 }
 
+function restoreRegisteredShortcut(refused) {
+  return withSettingsLock(() => {
+    if (config.getGlobalShortcut() === refused) config.setGlobalShortcut(registeredShortcut);
+  });
+}
+
+function applySavedShortcut(saved) {
+  try {
+    registerShortcut(saved);
+  } catch (error) {
+    if (!registeredShortcut) return notify(error.message);
+    notify(`${error.message} The previous shortcut stays active.`);
+    restoreRegisteredShortcut(saved).catch(restoreError => notify(restoreError.message));
+  }
+}
+
 app.on('web-contents-created', (_event, contents) => {
   contents.on('will-navigate', event => event.preventDefault());
   contents.on('will-frame-navigate', event => event.preventDefault());
@@ -134,9 +168,16 @@ app.on('web-contents-created', (_event, contents) => {
 app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
-  config.migrateIfNeeded();
   createWindow();
-  try { registerShortcut(config.getGlobalShortcut()); } catch (error) { notify(error.message); }
+  let previousShortcut;
+  const stopWatching = config.watchSettings(settings => {
+    if (settings.globalShortcut !== previousShortcut) {
+      previousShortcut = settings.globalShortcut;
+      applySavedShortcut(previousShortcut);
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('settings-changed', settings);
+  });
+  app.once('will-quit', stopWatching);
 });
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
@@ -150,11 +191,16 @@ function handle(channel, handler) {
   });
 }
 
-handle('upload-screenshot', async bytes => {
+function handleWrite(channel, handler) {
+  handle(channel, (...args) => withSettingsLock(() => handler(...args)));
+}
+
+handle('upload-screenshot', async (bytes, profileId) => {
   try {
+    const profile = displayedDestination(profileId);
     const image = nativeImage.createFromBuffer(validatePng(bytes));
     if (image.isEmpty()) throw new Error('Cannot decode that image.');
-    return performUpload(config.getConfig(), image.toPNG(), image);
+    return performUpload(profile, image.toPNG(), image);
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -175,22 +221,23 @@ handle('copy-history-path', remotePath => {
   clipboard.writeText(clipboardPath(remotePath));
 });
 handle('get-servers', () => config.getServers().map(publicProfile));
+handle('get-settings', config.getSettings);
 handle('get-active-server', () => publicProfile(config.getActiveServer()));
-handle('set-active-server', id => { requireProfile(id); config.setActiveServer(id); });
-handle('add-server', () => publicProfile(config.addServer({ name: 'New Server' })));
-handle('update-server', (id, fields) => { requireProfile(id); config.updateServer(id, fields); });
-handle('delete-server', id => { requireProfile(id); config.deleteServer(id); });
+handleWrite('set-active-server', id => { requireProfile(id); config.setActiveServer(id); });
+handleWrite('add-server', () => publicProfile(config.addServer({ name: 'New Server' })));
+handleWrite('update-server', (id, fields) => { requireProfile(id); config.updateServer(id, fields); });
+handleWrite('delete-server', id => { requireProfile(id); config.deleteServer(id); });
 handle('choose-key', async id => {
   requireProfile(id);
   const choice = await dialog.showOpenDialog(mainWindow, { title: 'Choose SSH private key', properties: ['openFile', 'showHiddenFiles'] });
-  if (!choice.canceled) config.setKeyFile(id, choice.filePaths[0]);
+  if (!choice.canceled) await withSettingsLock(() => config.setKeyFile(id, choice.filePaths[0]));
 });
-handle('clear-history', age => {
+handleWrite('clear-history', age => {
   if (![null, 3600000, 86400000, 2592000000].includes(age)) throw new Error('Unknown history range.');
   config.clearHistory(age);
 });
 handle('get-global-shortcut', config.getGlobalShortcut);
-handle('set-global-shortcut', value => {
+handleWrite('set-global-shortcut', value => {
   registerShortcut(value);
   config.setGlobalShortcut(value);
 });

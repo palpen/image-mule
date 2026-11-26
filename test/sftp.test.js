@@ -8,7 +8,10 @@ const mockSftp = {
   sftp: { mkdir: jest.fn() }
 };
 jest.mock('ssh2-sftp-client', () => jest.fn(() => mockSftp));
-jest.mock('fs', () => ({ readFileSync: jest.fn(() => 'private key') }));
+jest.mock('fs', () => ({
+  readFileSync: jest.fn(() => 'private key'),
+  statSync: jest.fn(() => ({ isFile: () => true, size: 1024 }))
+}));
 const { uploadFile, testConnection } = require('../lib/sftp');
 const key = Buffer.from('host-key-test-fixture');
 const profile = {
@@ -71,6 +74,15 @@ test('agent authentication never reads a key file', async () => {
 
 test('rejects ambiguous relative private key paths', async () => {
   await expect(testConnection({ ...profile, privateKeyPath: '~another/key' })).rejects.toThrow('absolute');
+  expect(fs.readFileSync).not.toHaveBeenCalled();
+});
+
+test.each([
+  ['a device or directory', { isFile: () => false, size: 0 }],
+  ['an oversized file', { isFile: () => true, size: 64 * 1024 + 1 }]
+])('refuses to read %s as a private key', async (_kind, stats) => {
+  fs.statSync.mockReturnValueOnce(stats);
+  await expect(testConnection(profile)).rejects.toThrow('regular SSH key file');
   expect(fs.readFileSync).not.toHaveBeenCalled();
 });
 

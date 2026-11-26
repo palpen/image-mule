@@ -3,9 +3,10 @@
   "version": "1.1.0",
   "description": "Haul screenshots to your remote server via SFTP",
   "author": "palpen",
-  "main": "main.js",
+  "main": "lib/entry.js",
   "scripts": {
     "start": "electron .",
+    "config": "electron . config",
     "build": "electron-builder",
     "test": "jest"
   },
@@ -20,6 +21,9 @@
       "hardenedRuntime": true
     },
     "win": {
+      "extraFiles": [
+        { "from": "bin/image-mule.cmd", "to": "image-mule.cmd" }
+      ],
       "target": [
         "nsis"
       ]
@@ -51,6 +55,7 @@
   },
   "dependencies": {
     "electron-store": "^8.1.0",
+    "proper-lockfile": "^4.1.2",
     "ssh2-sftp-client": "^9.1.0"
   },
   "devDependencies": {

@@ -1,4 +1,16 @@
-const { profileFields, publicProfile, validatePng, validShortcut, clipboardPath } = require('../lib/validation');
+const { profileFields, publicProfile, validKeyPath, validatePng, validShortcut, clipboardPath } = require('../lib/validation');
+
+test('key paths must be local and either absolute or under the home directory', () => {
+  expect(validKeyPath('~/.ssh/id_ed25519', 'linux')).toBe(true);
+  expect(validKeyPath('/home/ada/key', 'linux')).toBe(true);
+  expect(validKeyPath('C:\\Users\\ada\\key', 'win32')).toBe(true);
+  for (const value of ['relative/key', '~other/key', '/one\ntwo', '', 42, undefined]) {
+    expect(validKeyPath(value, 'linux')).toBe(false);
+  }
+  for (const value of ['\\\\server\\share\\key', '//server/share/key', '\\\\.\\pipe\\agent', '\\\\?\\C:\\key', 'C:key']) {
+    expect(validKeyPath(value, 'win32')).toBe(false);
+  }
+});
 
 test('rejects invalid profiles and limits the view returned to windows', () => {
   expect(() => profileFields({ port: 65536 })).toThrow();

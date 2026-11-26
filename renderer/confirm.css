@@ -96,6 +96,7 @@ body {
   text-align: center;
   color: var(--text-muted);
   min-height: 16px;
+  overflow-wrap: anywhere;
 }
 
 .confirm-status.uploading {

@@ -11,8 +11,10 @@ const serverSelect = document.getElementById('server-select');
 const addServerBtn = document.getElementById('add-server-btn');
 const deleteServerBtn = document.getElementById('delete-server-btn');
 
-// Config fields (excluding server-name which is handled separately)
 const fields = ['host', 'username', 'port', 'remotePath'];
+const editableFields = ['server-name', 'useAgent', ...fields];
+let renderedServerId = null;
+let pendingSave = Promise.resolve();
 let currentImageBuffer = null;
 let imageRevision = 0;
 
@@ -43,44 +45,39 @@ settingsToggle.addEventListener('click', () => {
 
 // --- Server selector ---
 async function loadServers() {
-  const servers = await window.api.getServers();
-  const active = await window.api.getActiveServer();
+  renderSettings(await window.api.getSettings());
+}
 
+function renderSettings({ servers, activeServerId, globalShortcut }) {
+  const active = servers.find(server => server.id === activeServerId);
+  const sameServer = active && renderedServerId === active.id;
+  renderedServerId = active?.id ?? null;
+  if (!isRecording) shortcutDisplay.textContent = formatShortcut(globalShortcut);
   serverSelect.replaceChildren();
-
+  deleteServerBtn.hidden = servers.length === 0;
   if (servers.length === 0) {
     const opt = document.createElement('option');
     opt.value = '';
     opt.textContent = 'No servers configured';
     serverSelect.appendChild(opt);
-    deleteServerBtn.hidden = true;
-    return;
   }
 
   servers.forEach(s => {
     const opt = document.createElement('option');
     opt.value = s.id;
     opt.textContent = s.name || s.host || 'Untitled';
-    if (active && s.id === active.id) opt.selected = true;
+    opt.selected = s.id === activeServerId;
     serverSelect.appendChild(opt);
   });
 
-  deleteServerBtn.hidden = servers.length === 0;
-  await loadActiveServerConfig();
-}
-
-async function loadActiveServerConfig() {
-  const server = await window.api.getActiveServer();
-  if (!server) return;
-
-  document.getElementById('privateKeyPath').value = server.privateKeyPath || '';
-  document.getElementById('useAgent').checked = Boolean(server.useAgent);
-  document.getElementById('server-name').value = server.name || '';
-  for (const field of fields) {
+  document.getElementById('privateKeyPath').value = active?.privateKeyPath || '';
+  document.getElementById('useAgent').checked = Boolean(active?.useAgent);
+  for (const field of ['server-name', ...fields]) {
     const el = document.getElementById(field);
-    if (el && server[field] !== undefined) {
-      el.value = server[field];
-    }
+    if (sameServer && el === document.activeElement && el.value !== el.defaultValue) continue;
+    const value = active?.[field === 'server-name' ? 'name' : field] ?? '';
+    el.value = value;
+    el.defaultValue = value;
   }
 }
 
@@ -88,7 +85,7 @@ serverSelect.addEventListener('change', async () => {
   const id = serverSelect.value;
   if (id) {
     await window.api.setActiveServer(id);
-    await loadActiveServerConfig();
+    await loadServers();
   }
 });
 
@@ -113,28 +110,23 @@ deleteServerBtn.addEventListener('click', async () => {
 });
 
 // --- Save config on input change ---
-function getConfigFromFields() {
-  const config = { name: document.getElementById('server-name').value };
-  for (const field of fields) {
-    const el = document.getElementById(field);
-    config[field] = field === 'port' ? Number(el.value || 22) : el.value;
-  }
-  config.useAgent = document.getElementById('useAgent').checked;
-  return config;
+function finishEditing() {
+  if (editableFields.includes(document.activeElement?.id)) document.activeElement.blur();
+  return pendingSave;
 }
 
-async function saveCurrentServer() {
-  const id = serverSelect.value;
-  if (!id) return;
-  const config = getConfigFromFields();
-  await window.api.updateServer(id, config);
-  // Update dropdown label
-  const opt = serverSelect.selectedOptions[0];
-  if (opt) opt.textContent = config.name || config.host || 'Untitled';
-}
-
-for (const field of ['server-name', 'useAgent', ...fields]) {
-  document.getElementById(field).addEventListener('change', () => saveCurrentServer().catch(showError));
+for (const field of editableFields) {
+  const el = document.getElementById(field);
+  el.addEventListener('change', () => {
+    const id = renderedServerId;
+    if (!id) return;
+    const key = field === 'server-name' ? 'name' : field;
+    let value = el.value;
+    if (field === 'port') value = Number(value || 22);
+    if (field === 'useAgent') value = el.checked;
+    pendingSave = pendingSave.catch(() => {}).then(() => window.api.updateServer(id, { [key]: value }));
+    pendingSave.catch(showError);
+  });
 }
 
 // --- Image handling ---
@@ -145,7 +137,7 @@ function showError(error) {
 document.getElementById('choose-key').addEventListener('click', async () => {
   if (!serverSelect.value) return;
   await window.api.chooseKey(serverSelect.value);
-  await loadActiveServerConfig();
+  await loadServers();
 });
 document.getElementById('open-releases').addEventListener('click', () => window.api.openReleases());
 
@@ -249,9 +241,10 @@ sendBtn.addEventListener('click', async () => {
   if (!currentImageBuffer) return;
 
   const bytes = currentImageBuffer;
+  const displayedServerId = renderedServerId;
   sendBtn.disabled = true;
   try {
-    await saveCurrentServer();
+    await finishEditing();
   } catch (error) {
     sendBtn.disabled = !currentImageBuffer;
     return showError(error);
@@ -260,7 +253,7 @@ sendBtn.addEventListener('click', async () => {
   sendBtn.classList.add('uploading');
   setStatus('Connecting...', 'info');
 
-  const result = await window.api.uploadScreenshot(bytes).catch(error => ({ error: error.message }));
+  const result = await window.api.uploadScreenshot(bytes, displayedServerId).catch(error => ({ error: error.message }));
 
   sendBtn.classList.remove('uploading');
   sendBtn.textContent = 'Transmit and Copy File Path';
@@ -282,7 +275,7 @@ document.addEventListener('keydown', (e) => {
 
 // --- Test connection ---
 testBtn.addEventListener('click', async () => {
-  try { await saveCurrentServer(); } catch (error) { return showError(error); }
+  try { await finishEditing(); } catch (error) { return showError(error); }
   testBtn.textContent = 'Testing...';
   setStatus('Testing...', 'info');
 
@@ -490,5 +483,5 @@ resetShortcutBtn.addEventListener('click', async () => {
 });
 
 // --- Init ---
+window.api.onSettingsChanged(renderSettings);
 loadServers();
-loadShortcut();
