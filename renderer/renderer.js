@@ -45,6 +45,11 @@ const ui = {
   copyPathLabel: byId('copy-path-label'),
   transmissionLine: byId('transmission-line'),
   transmissionPath: byId('transmission-path'),
+  setupView: byId('view-setup'),
+  setupBack: byId('setup-back'),
+  copySetupPrompt: byId('copy-setup-prompt'),
+  manualSetup: byId('manual-setup'),
+  setupStatus: byId('setup-status'),
   serverView: byId('view-server'),
   editorTitle: byId('editor-title'),
   editorDone: byId('editor-done'),
@@ -142,7 +147,10 @@ function setTone(node, tone) {
 
 function showError(error) {
   const text = errorMessage(error);
-  if (state.view.name === 'server') {
+  if (state.view.name === 'setup') {
+    ui.setupStatus.textContent = text;
+    setTone(ui.setupStatus, 'error');
+  } else if (state.view.name === 'server') {
     state.editorNotice = { tone: 'error', text };
     renderServerEditor();
   } else if (state.view.name === 'transmission') {
@@ -317,11 +325,12 @@ function renderCompose() {
   }
   ui.clearImage.hidden = !hasImage || busy;
 
-  ui.transmit.disabled = !hasImage || busy || !server;
+  ui.transmit.disabled = busy || (Boolean(server) && !hasImage);
+  ui.transmitKbd.hidden = !server;
   ui.transmit.classList.toggle('is-busy', busy);
   ui.transmitLabel.textContent = busy
     ? `Transmitting to ${displayName(server)}…`
-    : server ? `Transmit to ${displayName(server)}` : 'Transmit';
+    : server ? `Transmit to ${displayName(server)}` : 'Add server';
 
   ui.composeStatusText.textContent = status.text;
   setTone(ui.composeStatus, status.tone);
@@ -401,6 +410,7 @@ function renderPane() {
   }
   ui.composeView.hidden = state.view.name !== 'compose';
   ui.transmissionView.hidden = state.view.name !== 'transmission';
+  ui.setupView.hidden = state.view.name !== 'setup';
   ui.serverView.hidden = state.view.name !== 'server';
   renderCompose();
   renderTransmission();
@@ -416,10 +426,18 @@ function render() {
 
 function applySettings(settings) {
   if (!settings) return;
+  const previousTarget = targetServer();
   const targetChanged = settings.activeServerId !== state.settings.activeServerId;
   state.settings = settings;
   if (targetChanged && !isInFlight()) {
     state.transmission = { phase: 'idle', error: '' };
+  }
+  const target = targetServer();
+  if (state.view.name === 'setup' && state.view.promptCopied && target && !isIncomplete(target) &&
+      (targetChanged || Object.keys(target).some(key => target[key] !== previousTarget?.[key]))) {
+    closeToCompose();
+    (ui.transmit.disabled ? ui.dropZone : ui.transmit).focus();
+    return;
   }
   render();
 }
@@ -509,10 +527,12 @@ async function closeToCompose() {
     }
   }
   if (state.view.name === 'compose') return;
+  const wasSetup = state.view.name === 'setup';
   state.view = { name: 'compose', remotePath: null, serverId: null, announcement: '' };
   state.transmissionError = '';
   cancelConfirmation();
   render();
+  if (wasSetup) ui.addServer.focus();
 }
 
 async function pickServer(serverId) {
@@ -549,10 +569,41 @@ async function showServerEditor(serverId, { focusName = false } = {}) {
   }
 }
 
-async function addServer() {
+async function showSetup() {
   if (isInFlight()) return;
   try {
     await flushPendingEdits();
+    if (state.view.name !== 'setup') {
+      state.view = { name: 'setup', promptCopied: false };
+      ui.copySetupPrompt.textContent = 'Copy setup prompt';
+      ui.setupStatus.textContent = '';
+      cancelConfirmation();
+      render();
+    }
+    ui.copySetupPrompt.focus();
+  } catch (error) {
+    showError(error);
+  }
+}
+
+async function copySetupPrompt() {
+  const view = state.view;
+  try {
+    await window.api.copySetupPrompt();
+    if (view !== state.view) return;
+    view.promptCopied = true;
+    ui.copySetupPrompt.textContent = 'Copy again';
+    ui.setupStatus.textContent = 'Prompt copied. Paste it into your local coding agent.';
+    setTone(ui.setupStatus, 'success');
+  } catch (error) {
+    if (view === state.view) showError(error);
+  }
+}
+
+async function addServerManually() {
+  if (ui.manualSetup.disabled) return;
+  ui.manualSetup.disabled = true;
+  try {
     const created = await window.api.addServer();
     state.transmission = { phase: 'idle', error: '' };
     state.composeError = '';
@@ -560,6 +611,8 @@ async function addServer() {
     await showServerEditor(created.id, { focusName: true });
   } catch (error) {
     showError(error);
+  } finally {
+    ui.manualSetup.disabled = false;
   }
 }
 
@@ -878,7 +931,10 @@ ui.authOptions.forEach(option => option.addEventListener('click', () => {
   setAuthMode(option.dataset.auth === 'agent');
 }));
 
-ui.addServer.addEventListener('click', addServer);
+ui.addServer.addEventListener('click', showSetup);
+ui.copySetupPrompt.addEventListener('click', copySetupPrompt);
+ui.manualSetup.addEventListener('click', addServerManually);
+ui.setupBack.addEventListener('click', closeToCompose);
 ui.clearHistory.addEventListener('click', () => requestConfirmation('clear-history', clearHistory));
 ui.shortcutKeys.addEventListener('click', () => {
   state.isRecordingShortcut = !state.isRecordingShortcut;
@@ -898,7 +954,7 @@ ui.clearImage.addEventListener('click', event => {
   clearComposeImage();
 });
 
-ui.transmit.addEventListener('click', transmit);
+ui.transmit.addEventListener('click', () => targetServer() ? transmit() : showSetup());
 ui.editFailingServer.addEventListener('click', () => {
   const server = targetServer();
   if (server) showServerEditor(server.id);

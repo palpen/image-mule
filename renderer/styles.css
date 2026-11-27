@@ -656,6 +656,55 @@ body.is-mac .rail-drag {
   margin-left: 4px;
 }
 
+.setup-view {
+  overflow-y: auto;
+}
+
+.setup-body {
+  margin: auto 0;
+  padding: 8px 2px;
+}
+
+.setup-body h2 {
+  font-size: 32px;
+  line-height: 1.12;
+  letter-spacing: -1px;
+}
+
+.setup-body > p:first-of-type {
+  max-width: 40ch;
+  margin: 12px 0 24px;
+  line-height: 1.55;
+}
+
+.setup-body .primary {
+  min-height: 44px;
+  padding: 0 20px;
+}
+
+.setup-manual {
+  display: block;
+  min-height: 44px;
+  text-decoration: underline;
+  text-decoration-color: var(--text-muted);
+  text-underline-offset: 4px;
+}
+
+.setup-manual:hover {
+  text-decoration-color: currentColor;
+}
+
+.setup-status {
+  min-height: 2.8em;
+  margin-top: 12px;
+  font: 12px/1.4 var(--font-mono);
+  color: var(--success);
+}
+
+.setup-status.is-error {
+  color: var(--error);
+}
+
 .fields {
   display: flex;
   flex-direction: column;

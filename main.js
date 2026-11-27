@@ -5,6 +5,7 @@ const { randomUUID } = require('node:crypto');
 const { uploadFile, testConnection } = require('./lib/sftp');
 const config = require('./lib/config');
 const { withSettingsLock } = require('./lib/settings-lock');
+const { setupPrompt } = require('./lib/config-cli');
 const { profileFields, publicProfile, validatePng, validShortcut, clipboardPath } = require('./lib/validation');
 
 const RELEASES_URL = 'https://github.com/palpen/image-mule/releases/latest';
@@ -268,6 +269,11 @@ handle('copy-history-path', remotePath => {
 });
 handle('get-servers', () => config.getServers().map(publicProfile));
 handle('get-settings', config.getSettings);
+handle('copy-setup-prompt', () => {
+  const executable = process.platform === 'linux' && app.isPackaged && process.env.APPIMAGE || process.execPath;
+  const command = app.isPackaged ? [executable, 'config'] : [executable, app.getAppPath(), 'config'];
+  clipboard.writeText(setupPrompt(command));
+});
 handle('get-active-server', () => publicProfile(config.getActiveServer()));
 handleWrite('set-active-server', id => { requireProfile(id); config.setActiveServer(id); });
 handleWrite('add-server', () => publicProfile(config.addServer({ name: 'New Server' })));

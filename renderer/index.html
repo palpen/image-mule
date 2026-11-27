@@ -80,6 +80,20 @@
       </div>
     </div>
 
+    <section class="view setup-view" id="view-setup" aria-labelledby="setup-title" hidden>
+      <header class="editor-heading">
+        <h1 class="heading" id="setup-title">Add server</h1>
+        <button type="button" class="editor-done" id="setup-back">Back <kbd>esc</kbd></button>
+      </header>
+      <div class="setup-body">
+        <h2>Set up with your agent</h2>
+        <p>Paste the prompt into a coding agent on this computer. It will check your recent SSH connections and ask which server to use.</p>
+        <button type="button" class="primary" id="copy-setup-prompt">Copy setup prompt</button>
+        <button type="button" class="setup-manual" id="manual-setup">Enter details manually</button>
+        <p class="setup-status" id="setup-status" role="status"></p>
+      </div>
+    </section>
+
     <form class="view" id="view-server" autocomplete="off" hidden>
       <header class="editor-heading">
         <h1 class="heading" id="editor-title"></h1>

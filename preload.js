@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   getActiveServer: () => ipcRenderer.invoke('get-active-server'),
   setActiveServer: id => ipcRenderer.invoke('set-active-server', id),
   addServer: () => ipcRenderer.invoke('add-server'),
+  copySetupPrompt: () => ipcRenderer.invoke('copy-setup-prompt'),
   updateServer: (id, config) => ipcRenderer.invoke('update-server', id, config),
   chooseKey: id => ipcRenderer.invoke('choose-key', id),
   deleteServer: id => ipcRenderer.invoke('delete-server', id),

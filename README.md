@@ -42,7 +42,9 @@ On Windows and Linux, use **Ctrl** in place of **Cmd**.
 
 ## Configuration
 
-The left rail lists your servers. An amber dot marks the active upload target; clicking any server switches the target. Click **+** to add a server, or click **Edit** on any row (or press **Cmd+E** for the target server) to open the editor on the right. Changes save automatically as you type:
+Click **Add server** or **+**, then **Copy setup prompt**. Paste it into a coding agent running on the computer where Image Mule is installed. The prompt asks the agent to suggest servers from your recent SSH commands and saved aliases. Pick one and the agent uses this installation's CLI to configure it. Agent setup supports direct SFTP connections.
+
+You can also choose **Enter details manually**. An amber dot in the left rail marks the active upload target. Click a server to switch targets, or click **Edit** (or press **Cmd+E** for the active server) to change these settings. Edits save as you type.
 
 | Field | Description |
 |-------|-------------|

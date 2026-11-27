@@ -50,7 +50,7 @@ const mockConfig = {
 };
 
 jest.mock('electron', () => ({
-  app: { name: 'Image Mule', on: jest.fn(), once: jest.fn(), whenReady: () => Promise.resolve() },
+  app: { name: 'Image Mule', on: jest.fn(), once: jest.fn(), whenReady: () => Promise.resolve(), getAppPath: () => '/checkout with spaces' },
   BrowserWindow: jest.fn(() => mockWin),
   Notification: jest.fn(() => ({ show: jest.fn() })),
   nativeImage: { createFromBuffer: mockCreateFromBuffer },
@@ -71,6 +71,16 @@ beforeAll(async () => {
 });
 
 const trustedEvent = { sender: mockContents, senderFrame: mockFrame };
+
+test.each([true, false])('setup prompt includes the local CLI argument array (packaged=%s)', packaged => {
+  const { app } = require('electron');
+  app.isPackaged = packaged;
+  mockHandlers['copy-setup-prompt'](trustedEvent);
+  const prompt = mockClipboardWriteText.mock.lastCall[0];
+  const command = JSON.parse(prompt.split('\n').find(line => line.startsWith('[')));
+  const binary = packaged && process.platform === 'linux' && process.env.APPIMAGE || process.execPath;
+  expect(command).toEqual(packaged ? [binary, 'config'] : [binary, app.getAppPath(), 'config']);
+});
 
 function validPngBytes() {
   const buffer = Buffer.alloc(33);
