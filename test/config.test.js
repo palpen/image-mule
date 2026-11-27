@@ -166,6 +166,14 @@ describe('History', () => {
     expect(history).toHaveLength(1);
     expect(history[0].filename).toBe('recent.png');
   });
+
+  test('addHistoryEntry preserves serverName and older entries return undefined', () => {
+    config.addHistoryEntry({ filename: 'legacy.png', host: 'old.example', timestamp: new Date().toISOString() });
+    config.addHistoryEntry({ filename: 'named.png', host: 'new.example', serverName: 'Staging GPU', timestamp: new Date().toISOString() });
+    const history = config.getHistory();
+    expect(history[0].serverName).toBe('Staging GPU');
+    expect(history[1].serverName).toBeUndefined();
+  });
 });
 
 describe('Settings', () => {
