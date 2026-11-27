@@ -4,7 +4,7 @@
 - **What this is:** Electron desktop utility that hauls screenshots from your laptop to a remote server via SFTP. Paste, transmit, get the path on your clipboard.
 - **Who it's for:** Developers working with remote Claude Code sessions (or any remote tool) who need to share visual context from their local machine.
 - **Space/industry:** Developer utilities. Peers: Raycast (launcher), CleanShot X (screenshots), Warp (terminal), Linear (project management).
-- **Project type:** Desktop utility app (Electron, single-window, 520x680)
+- **Project type:** Desktop utility app (Electron, single-window, 760x520, resizable)
 
 ## Aesthetic Direction
 - **Direction:** Industrial Utilitarian — "midnight workbench"
@@ -56,18 +56,17 @@
 - **Scale:** 4 / 8 / 12 / 16 / 24 / 32 / 48
 
 ## Layout
-- **Approach:** Left-weighted poster composition
-- **Window:** 520x680, min 420x580
+- **Approach:** Split rail — quiet index on the left, single stage on the right
+- **Window:** 760x520, min 680x460, resizable
 - **Composition:**
-  - Drop zone dominates top ~50% of viewport
-  - Server config in compact field rows below
-  - Wide primary action button anchored at bottom
-  - Status line as terse monospace strip at very bottom
-- **Border radius:** sm: 4px (inputs), md: 6px (buttons, alerts), lg: 10px (cards, drop zone)
+  - Fixed 232px left rail: servers (with target dot and Edit action), scrollable recent transmissions, and quick-transmit shortcut footer
+  - Flexing right pane: always one of three views (compose, transmission detail, or server editor) sharing one skeleton — one large area, one action row, one monospace status strip
+  - Two rail signals only: amber dot marks the target server (where the next transmission goes), raised row marks what the pane is showing
+- **Border radius:** sm: 4px (inputs, thumbnails), md: 6px (buttons, rail rows), lg: 10px (drop zone, preview stage)
 - **Key rules:**
   - Left-aligned labels and text, not centered
   - Tight vertical rhythm
-  - No "settings page" feel — this is a tool, not a form
+  - No tabs, no modal dialogs, and no "settings page" feel — destructive actions confirm in place
 
 ## Motion
 - **Approach:** Minimal-functional — only transitions that aid comprehension
@@ -90,3 +89,4 @@
 | 2026-04-05 | Chose amber accent (#c47a3a) over indigo (#5c6bc0) | The product is called "Mule" and it hauls things. Warm amber = freight, delivery, movement. Every other dev tool reaches for blue/purple. Amber is instantly recognizable. |
 | 2026-04-05 | Space Grotesk + JetBrains Mono typography | Space Grotesk gives structured personality without being sterile or decorative. JetBrains Mono is the natural choice for a developer tool showing file paths. |
 | 2026-04-05 | Dark-only, no light mode | Target users are developers in dark terminals. Light mode would be wasted effort for this audience. |
+| 2026-11-26 | Adopted Split Rail layout | Keeps servers and recent transmissions always visible in a fixed left rail while the right pane serves as a single stage for compose, transmission detail, and server editing, with no tabs or modals. |

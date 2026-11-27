@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, clipboard, globalShortcut, nativeImage, Notification, dialog, session, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, clipboard, globalShortcut, nativeImage, Notification, dialog, session, shell, Menu } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { randomUUID } = require('node:crypto');
@@ -6,6 +6,8 @@ const { uploadFile, testConnection } = require('./lib/sftp');
 const config = require('./lib/config');
 const { withSettingsLock } = require('./lib/settings-lock');
 const { profileFields, publicProfile, validatePng, validShortcut, clipboardPath } = require('./lib/validation');
+
+const RELEASES_URL = 'https://github.com/palpen/image-mule/releases/latest';
 
 let mainWindow;
 let confirmWindow;
@@ -22,14 +24,54 @@ function fromWindow(event, win, page) {
 }
 
 function requireProfile(id) {
-  if (typeof id !== 'string' || id.length > 100 || !config.getServers().some(server => server.id === id)) {
-    throw new Error('Unknown server profile.');
-  }
+  const profile = typeof id === 'string' && id.length <= 100
+    ? config.getServers().find(server => server.id === id)
+    : null;
+  if (!profile) throw new Error('Unknown server profile.');
+  return profile;
+}
+
+function notifyHistoryChanged() {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('history-changed');
+}
+
+function buildMenu() {
+  const checkForUpdates = {
+    label: 'Check for Updates…',
+    click: () => shell.openExternal(RELEASES_URL)
+  };
+  const isMac = process.platform === 'darwin';
+  const template = [
+    ...(isMac ? [{
+      label: app.name || 'Image Mule',
+      submenu: [
+        { role: 'about' },
+        checkForUpdates,
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    }] : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: isMac ? [] : [checkForUpdates]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 520, height: 520, minWidth: 420, minHeight: 460,
+    width: 760, height: 520, minWidth: 680, minHeight: 460,
     titleBarStyle: 'hiddenInset', backgroundColor: '#111110',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false }
   });
@@ -67,7 +109,10 @@ async function performUpload(profile, buffer, image) {
     clipboard.writeText(text);
     const size = image.getSize();
     const thumbnail = image.resize(size.width >= size.height ? { width: 100 } : { height: 100 }).toDataURL();
-    await withSettingsLock(() => config.addHistoryEntry({ filename, remotePath, host: profile.host, timestamp: new Date().toISOString(), thumbnail }));
+    await withSettingsLock(() => config.addHistoryEntry({
+      filename, remotePath, host: profile.host, serverName: profileLabel(profile), timestamp: new Date().toISOString(), thumbnail
+    }));
+    notifyHistoryChanged();
     return { success: true, remotePath };
   } catch (error) {
     return { success: false, error: error.message };
@@ -168,6 +213,7 @@ app.on('web-contents-created', (_event, contents) => {
 app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
+  buildMenu();
   createWindow();
   let previousShortcut;
   const stopWatching = config.watchSettings(settings => {
@@ -206,9 +252,9 @@ handle('upload-screenshot', async (bytes, profileId) => {
   }
 });
 
-handle('test-connection', async () => {
+handle('test-connection', async id => {
   try {
-    await withTrustedHost(config.getConfig(), testConnection);
+    await withTrustedHost(requireProfile(id), testConnection);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -235,10 +281,10 @@ handle('choose-key', async id => {
 handleWrite('clear-history', age => {
   if (![null, 3600000, 86400000, 2592000000].includes(age)) throw new Error('Unknown history range.');
   config.clearHistory(age);
+  notifyHistoryChanged();
 });
 handle('get-global-shortcut', config.getGlobalShortcut);
 handleWrite('set-global-shortcut', value => {
   registerShortcut(value);
   config.setGlobalShortcut(value);
 });
-handle('open-releases', () => shell.openExternal('https://github.com/palpen/image-mule/releases/latest'));

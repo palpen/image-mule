@@ -19,23 +19,43 @@ npm start
 
 1. Take a screenshot on your laptop
 2. **Cmd+V** to paste it into Image Mule (or drag and drop)
-3. Click **Transmit and Copy File Path** (or **Cmd+Enter**)
+3. Click **Transmit to \<server\>** (or **Cmd+Enter**)
 4. The remote file path is copied to your clipboard
 5. Paste the path into your remote Claude Code session
 
+You can also transmit the current clipboard image from anywhere using the **Quick transmit** shortcut in the bottom-left rail footer (default **Cmd+Option+Ctrl+P**). Click the shortcut pill to record a new key combination, press **Esc** to cancel, or click **reset** while recording to restore the default.
+
+### Keyboard shortcuts
+
+On Windows and Linux, use **Ctrl** in place of **Cmd**.
+
+| Shortcut | Action |
+|----------|--------|
+| **Cmd+V** | Paste an image from the clipboard |
+| **Cmd+Enter** | Transmit the staged image |
+| **Cmd+1**–**Cmd+9** | Switch the target server |
+| **Cmd+E** | Edit the target server |
+| **Up** / **Down** | Walk recent transmissions |
+| **Enter** | Copy the shown transmission path |
+| **Backspace** / **Delete** | Remove the staged image |
+| **Esc** | Return to compose |
+
 ## Configuration
 
-Click **Server Settings** to expand the connection panel. On first launch, fill in your server details:
+The left rail lists your servers. An amber dot marks the active upload target; clicking any server switches the target. Click **+** to add a server, or click **Edit** on any row (or press **Cmd+E** for the target server) to open the editor on the right. Changes save automatically as you type:
 
 | Field | Description |
 |-------|-------------|
-| Server | SSH hostname or IP |
-| User | SSH username |
+| Name | Label shown in the rail and Transmit button |
+| Host | SSH hostname or IP |
 | Port | SSH port (default: 22) |
-| SSH Key | Select a private key file (default `~/.ssh/id_rsa`) or use your SSH agent |
-| Remote Folder | Where screenshots land on the server |
+| User | SSH username |
+| SSH auth | Use **SSH agent** or pick a private **Key file** via **Choose…** (default `~/.ssh/id_rsa`) |
+| Remote folder | Where screenshots land on the server |
 
-Use Node.js 24 for development. Settings are persisted between sessions and the panel stays collapsed once configured.
+Click **Test connection** to verify the server you're editing without changing the active target. **Delete server** confirms in place with a second click (**Confirm delete**).
+
+Use Node.js 24 for development. Settings persist between sessions.
 
 ### Configure from the terminal
 
@@ -66,7 +86,7 @@ Commands print JSON to stdout. Errors go to stderr and return a nonzero exit cod
 
 ## History
 
-Switch to the **History** tab to see your last 100 transmissions. Each entry shows the filename, server, and timestamp. Click **Copy Path** to copy any previous remote path to your clipboard.
+Your last 100 transmissions appear in the **Recent** section of the left rail. Click any row (or use **Up** / **Down** arrow keys) to view its preview and remote path, then click **Copy path** (or press **Enter**) to copy the path to your clipboard. Press **Esc** to return to compose. Click **Clear** and then **Clear all?** to remove stored history.
 
 ## Build
 
@@ -86,13 +106,13 @@ MIT
 
 On the first connection to each host and port, compare the fingerprint in the native approval dialog with one obtained from your server administrator over a trusted channel. On an OpenSSH server the administrator can run `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` for an Ed25519 host key. A changed key blocks uploads. After verifying a planned key rotation, create a new profile and approve its key.
 
-Choose **Use SSH agent** for passphrase-protected keys, or **Choose key…** for a private key file. The app uses the agent visible to its process. Legacy password authentication is retired. Upgrading removes saved passwords and keeps the other server settings.
+Choose **SSH agent** for passphrase-protected keys, or **Key file → Choose…** for a private key file. The app uses the agent visible to its process. Legacy password authentication is retired. Upgrading removes saved passwords and keeps the other server settings.
 
 Choose a remote folder under your own home directory. The app sends PNGs directly from memory. It requests owner-only permissions for new folders and files on POSIX servers. Paths with shell-special characters are quoted for pasting into a POSIX shell.
 
-History retains paths, hosts and timestamps in the local settings file. Thumbnails are encrypted using Electron's OS-backed secret storage. When secure storage is unavailable, the app keeps metadata only. The upgrade also applies this rule to existing previews. **Clear → All History** removes the stored history.
+History retains paths, hosts, server names, and timestamps in the local settings file. Thumbnails are encrypted using Electron's OS-backed secret storage. When secure storage is unavailable, the app keeps metadata only. The upgrade also applies this rule to existing previews. **Clear → Clear all?** removes the stored history.
 
-Use **Server Settings → Check for updates** to open the latest GitHub release. Install updates manually.
+Use **Image Mule → Check for Updates…** on macOS (**Help → Check for Updates…** on Windows and Linux) to open the latest GitHub release. Install updates manually.
 
 ## Release signing
 
